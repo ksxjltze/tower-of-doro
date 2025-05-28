@@ -1,5 +1,11 @@
-// @ts-nocheck
+// // @ts-nocheck
 import { Component } from '@angular/core';
+
+async function loadImageBitmap(url: URL | string): Promise<ImageBitmap> {
+  const res = await fetch(url);
+  const blob = await res.blob();
+  return await createImageBitmap(blob, { colorSpaceConversion: 'none' });
+}
 
 @Component({
   selector: 'app-game',
@@ -19,6 +25,7 @@ export class GameComponent {
   shaders = `
     struct VertexOut {
       @builtin(position) position : vec4f,
+      @location(0) uv : vec2f,
     }
 
     struct Uniforms {
@@ -29,6 +36,8 @@ export class GameComponent {
     }
 
     @group(0) @binding(0) var<uniform> uniforms: Uniforms;
+    @group(0) @binding(1) var sampler2d: sampler;
+    @group(0) @binding(2) var texture: texture_2d<f32>;
 
     @vertex
     fn vertex_main(@location(0) position: vec4f) -> VertexOut
@@ -36,22 +45,33 @@ export class GameComponent {
       var output : VertexOut;
 
       output.position = uniforms.projection * uniforms.view * uniforms.model * vec4f(position.xy, 0.0, 1.0);
+      output.uv = position.xy * 0.5 + 0.5; // Convert from [-1, 1] to [0, 1]
       return output;
     }
 
     @fragment
     fn fragment_main(fragData: VertexOut) -> @location(0) vec4f
     {
-      return uniforms.color;
+      return textureSample(texture, sampler2d, fragData.uv) * uniforms.color;
     }
     `;
 
-  const identityMatrix = [
+  identityMatrix = [
     1, 0, 0, 0,
     0, 1, 0, 0,
     0, 0, 1, 0,
     0, 0, 0, 1,
   ];
+
+  context: GPUCanvasContext | null = null;
+  device?: GPUDevice = undefined;
+  vertexBuffer?: GPUBuffer = undefined;
+  renderPipeline?: GPURenderPipeline = undefined;
+  commandEncoder?: GPUCommandEncoder = undefined;
+  renderPassDescriptor?: GPURenderPassDescriptor = undefined;
+  uniformBuffer?: GPUBuffer = undefined;
+  uniformValues?: Float32Array | GPUAllowSharedBufferSource = undefined;
+  bindGroup?: GPUBindGroup = undefined;
 
   async initWebGPU() {
     if (!navigator.gpu) {
@@ -72,6 +92,10 @@ export class GameComponent {
 
     const canvas = document.querySelector("#gameCanvas") as HTMLCanvasElement;
     this.context = canvas.getContext("webgpu");
+
+    if (!this.context) {
+      throw Error("Couldn't get WebGPU context from canvas.");
+    }
 
     this.context.configure({
       device: device,
@@ -161,11 +185,24 @@ export class GameComponent {
 
     colorValue.set([Math.random(), Math.random(), Math.random(), 1]);
 
+    const texture = await this.loadDoroTexture();
+
+    const sampler = this.device.createSampler({
+      label: 'sampler for object',
+      addressModeU: 'repeat', 
+      addressModeV: 'repeat',
+      magFilter: 'linear',
+      minFilter: 'linear',
+      mipmapFilter: 'linear',
+    });
+
     const bindGroup = device.createBindGroup({
       label: 'bind group for object',
       layout: this.renderPipeline.getBindGroupLayout(0),
       entries: [
-        { binding: 0, resource: { buffer: uniformBuffer }},
+        { binding: 0, resource: { buffer: uniformBuffer } },
+        { binding: 1, resource: sampler },
+        { binding: 2, resource: texture.createView() },
       ],
     });
 
@@ -187,6 +224,13 @@ export class GameComponent {
   }
 
   render() {
+    if (!this.context || !this.device || !this.renderPipeline || !this.vertexBuffer
+      || !this.commandEncoder || !this.renderPassDescriptor || !this.uniformBuffer
+      || !this.bindGroup || !this.uniformValues) {
+      console.error("WebGPU not fully initialized.");
+      return;
+    }
+
     const passEncoder = this.commandEncoder.beginRenderPass(this.renderPassDescriptor);
     const device = this.device;
 
@@ -197,10 +241,35 @@ export class GameComponent {
     device.queue.writeBuffer(this.uniformBuffer, 0, this.uniformValues);
 
     passEncoder.setBindGroup(0, this.bindGroup);
-    
+
     passEncoder.draw(6);
     passEncoder.end();
 
     device.queue.submit([this.commandEncoder.finish()]);
+  }
+
+  async loadDoroTexture(): Promise<GPUTexture> {
+    const url = '/resources/images/doro.png';
+    const source = await loadImageBitmap(url);
+    const texture = this.device?.createTexture({
+      label: url,
+      format: 'rgba8unorm',
+      size: [source.width, source.height],
+      usage: GPUTextureUsage.TEXTURE_BINDING |
+        GPUTextureUsage.COPY_DST |
+        GPUTextureUsage.RENDER_ATTACHMENT,
+    });
+
+    if (!texture) {
+      throw new Error("Failed to create texture.");
+    }
+
+    this.device?.queue.copyExternalImageToTexture(
+      { source, flipY: true },
+      { texture },
+      { width: source.width, height: source.height },
+    );
+
+    return texture;
   }
 }
