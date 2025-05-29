@@ -7,6 +7,178 @@ async function loadImageBitmap(url: URL | string): Promise<ImageBitmap> {
   return await createImageBitmap(blob, { colorSpaceConversion: 'none' });
 }
 
+class Matrix4x4 extends Float32Array {
+  constructor() {
+    super(16);
+    this.set(Matrix4x4.identityValues());
+  }
+
+  static identityValues(): number[] {
+    return [
+      1, 0, 0, 0,
+      0, 1, 0, 0,
+      0, 0, 1, 0,
+      0, 0, 0, 1,
+    ];
+  }
+
+  static identity(): Matrix4x4 {
+    return new Matrix4x4();
+  }
+
+  static fromArray(arr: number[]): Matrix4x4 {
+    if (arr.length !== 16) {
+      throw new Error("Array must have exactly 16 elements.");
+    }
+
+    const matrix = new Matrix4x4();
+    matrix.set(arr);
+
+    return matrix;
+  }
+}
+
+class Matrix3x3 extends Float32Array {
+  constructor() {
+    super(9);
+    this.set(Matrix3x3.identityValues());
+  }
+
+  static identityValues(): number[] {
+    return [
+      1, 0, 0,
+      0, 1, 0,
+      0, 0, 1,
+    ];
+  }
+
+  static identity(): Matrix3x3 {
+    return new Matrix3x3();
+  }
+
+  static fromArray(arr: number[]): Matrix3x3 {
+    if (arr.length !== 9) {
+      throw new Error("Array must have exactly 9 elements.");
+    }
+
+    const matrix = new Matrix3x3();
+    matrix.set(arr);
+
+    return matrix;
+  }
+
+  static fromFloat32Array(arr: Float32Array): Matrix3x3 {
+    if (arr.length !== 9) {
+      throw new Error("Float32Array must have exactly 9 elements.");
+    }
+    return arr as Matrix3x3;
+  }
+
+  static fromMatrix4x4(m: Matrix4x4): Matrix3x3 {
+    const matrix = new Matrix3x3();
+    if (m.length !== 16) {
+      throw new Error("Matrix4x4 must have exactly 16 elements.");
+    }
+    // Extract the 3x3 part from the 4x4 matrix
+    matrix.set([
+      m[0], m[1], m[2],
+      m[4], m[5], m[6],
+      m[8], m[9], m[10],
+    ]);
+
+    return matrix;
+  }
+
+  override set(arr: number[]): Matrix3x3 {
+    if (arr.length !== 9) {
+      throw new Error("Array must have exactly 9 elements.");
+    }
+    super.set(arr);
+    return this;
+  }
+
+  multiply(b: Matrix3x3) {
+    const a = this;
+
+    const a00 = a[0 * 3 + 0];
+    const a01 = a[0 * 3 + 1];
+    const a02 = a[0 * 3 + 2];
+    const a10 = a[1 * 3 + 0];
+    const a11 = a[1 * 3 + 1];
+    const a12 = a[1 * 3 + 2];
+    const a20 = a[2 * 3 + 0];
+    const a21 = a[2 * 3 + 1];
+    const a22 = a[2 * 3 + 2];
+    const b00 = b[0 * 3 + 0];
+    const b01 = b[0 * 3 + 1];
+    const b02 = b[0 * 3 + 2];
+    const b10 = b[1 * 3 + 0];
+    const b11 = b[1 * 3 + 1];
+    const b12 = b[1 * 3 + 2];
+    const b20 = b[2 * 3 + 0];
+    const b21 = b[2 * 3 + 1];
+    const b22 = b[2 * 3 + 2];
+
+    this.set([
+      b00 * a00 + b01 * a10 + b02 * a20,
+      b00 * a01 + b01 * a11 + b02 * a21,
+      b00 * a02 + b01 * a12 + b02 * a22,
+      b10 * a00 + b11 * a10 + b12 * a20,
+      b10 * a01 + b11 * a11 + b12 * a21,
+      b10 * a02 + b11 * a12 + b12 * a22,
+      b20 * a00 + b21 * a10 + b22 * a20,
+      b20 * a01 + b21 * a11 + b22 * a21,
+      b20 * a02 + b21 * a12 + b22 * a22,
+    ]);
+
+    return this;
+  };
+
+  translate([tx, ty]: [number, number]): Matrix3x3 {
+    this.multiply(new Matrix3x3().set([
+      1, 0, 0,
+      0, 1, 0,
+      tx, ty, 1,
+    ]));
+
+    return this;
+  };
+
+  rotate(angleInRadians: number): Matrix3x3 {
+    const c = Math.cos(angleInRadians);
+    const s = Math.sin(angleInRadians);
+
+    this.multiply(new Matrix3x3().set([
+      c, s, 0,
+      -s, c, 0,
+      0, 0, 1,
+    ]));
+
+    return this;
+  };
+
+  scale([sx, sy]: [number, number]): Matrix3x3 {
+    this.multiply(new Matrix3x3().set([
+      sx, 0, 0,
+      0, sy, 0,
+      0, 0, 1,
+    ]));
+
+    return this;
+  };
+
+  toMat4(): Float32Array {
+    const m = this;
+
+    return new Float32Array([
+      m[0], m[1], m[2], 0,
+      m[3], m[4], m[5], 0,
+      m[6], m[7], m[8], 0,
+      0, 0, 0, 1,
+    ]);
+  }
+}
+
 @Component({
   selector: 'app-game',
   imports: [],
@@ -17,9 +189,11 @@ export class GameComponent {
   ngOnInit() {
     console.log("GameComponent initialized");
 
-    this.initWebGPU().then(() => this.render()).catch((error) => {
-      console.error("Error initializing WebGPU:", error);
-    });
+    this.initWebGPU()
+      .then(() => requestAnimationFrame(this.render.bind(this)))
+      .catch((error) => {
+        console.error("Error initializing WebGPU:", error);
+      });
   }
 
   shaders = `
@@ -40,12 +214,12 @@ export class GameComponent {
     @group(0) @binding(2) var texture: texture_2d<f32>;
 
     @vertex
-    fn vertex_main(@location(0) position: vec4f) -> VertexOut
+    fn vertex_main(@location(0) position: vec4f, @location(1) uv: vec2f) -> VertexOut
     {
       var output : VertexOut;
 
       output.position = uniforms.projection * uniforms.view * uniforms.model * vec4f(position.xy, 0.0, 1.0);
-      output.uv = position.xy * 0.5 + 0.5; // Convert from [-1, 1] to [0, 1]
+      output.uv = uv;
       return output;
     }
 
@@ -63,15 +237,26 @@ export class GameComponent {
     0, 0, 0, 1,
   ];
 
+  //WebGPU stuff
   context: GPUCanvasContext | null = null;
   device?: GPUDevice = undefined;
   vertexBuffer?: GPUBuffer = undefined;
   renderPipeline?: GPURenderPipeline = undefined;
-  commandEncoder?: GPUCommandEncoder = undefined;
   renderPassDescriptor?: GPURenderPassDescriptor = undefined;
   uniformBuffer?: GPUBuffer = undefined;
   uniformValues?: Float32Array | GPUAllowSharedBufferSource = undefined;
   bindGroup?: GPUBindGroup = undefined;
+
+  // Uniform values
+  modelValue: Float32Array = new Float32Array(16); // 4x4 matrix
+  viewValue: Float32Array = new Float32Array(16); // 4x4 matrix
+  projectionValue: Float32Array = new Float32Array(16); // 4x4 matrix
+  colorValue: Float32Array = new Float32Array(4); // RGBA color
+
+  //game stuff
+  deltaTime = 0;
+  elapsedTime = 0;
+  lastTimestamp: DOMHighResTimeStamp | null = null;
 
   async initWebGPU() {
     if (!navigator.gpu) {
@@ -105,13 +290,13 @@ export class GameComponent {
 
     //square
     const vertices: Float32Array = new Float32Array([
-      -0.5, -0.5, // Bottom left
-      -0.5, 0.5, // Top Left
-      0.0, -0.5,
+      -0.5, -0.5, 0.0, 0.0,  // bottom left
+      0.5, -0.5, 1.0, 0.0,  // bottom right
+      -0.5, 0.5, 0.0, 1.0,  // top left
 
-      0.0, -0.5, // Bottom right
-      -0.5, 0.5, // Top right
-      0.0, 0.5, // Top center
+      -0.5, 0.5, 0.0, 1.0,  // top left
+      0.5, -0.5, 1.0, 0.0,  // bottom right
+      0.5, 0.5, 1.0, 1.0,  // top right
     ]);
 
     this.vertexBuffer = device.createBuffer({
@@ -128,8 +313,13 @@ export class GameComponent {
             offset: 0,
             format: "float32x2",
           },
+          {
+            shaderLocation: 1, // uv
+            offset: 8, // 2 floats (position) * 4 bytes each = 8 bytes offset
+            format: "float32x2",
+          },
         ],
-        arrayStride: 8,
+        arrayStride: 16, // 2 floats (position) + 2 floats (uv) = 4 floats * 4 bytes each = 16 bytes
         stepMode: "vertex",
       },
     ];
@@ -156,10 +346,9 @@ export class GameComponent {
     };
 
     this.renderPipeline = device.createRenderPipeline(pipelineDescriptor);
-    this.commandEncoder = device.createCommandEncoder();
 
     //4 matrices of 4x4 floats (16 floats each, 4 bytes each) and a color vector of 4 floats
-    const uniformBufferSize = 4 * 4 * 4 * Float32Array.BYTES_PER_ELEMENT + 4 * Float32Array.BYTES_PER_ELEMENT;
+    const uniformBufferSize = 4 * 4 * 4 * Float32Array.BYTES_PER_ELEMENT + 4 * Float32Array.BYTES_PER_ELEMENT + 4;
     const uniformBuffer = device.createBuffer({
       label: 'uniforms',
       size: uniformBufferSize,
@@ -173,24 +362,24 @@ export class GameComponent {
     const kProjectionMatrixOffset = 32; // 4x4 matrix = 16 floats
     const kColorOffset = 48; // 4 floats for color
 
-    const colorValue = uniformValues.subarray(kColorOffset, kColorOffset + 4);
-    const modelValue = uniformValues.subarray(kModelMatrixOffset, kModelMatrixOffset + 16);
-    const viewValue = uniformValues.subarray(kViewMatrixOffset, kViewMatrixOffset + 16);
-    const projectionValue = uniformValues.subarray(kProjectionMatrixOffset, kProjectionMatrixOffset + 16);
+    this.colorValue = uniformValues.subarray(kColorOffset, kColorOffset + 4);
+    this.modelValue = uniformValues.subarray(kModelMatrixOffset, kModelMatrixOffset + 16);
+    this.viewValue = uniformValues.subarray(kViewMatrixOffset, kViewMatrixOffset + 16);
+    this.projectionValue = uniformValues.subarray(kProjectionMatrixOffset, kProjectionMatrixOffset + 16);
 
-    //TODO: MVP
-    modelValue.set(this.identityMatrix);
-    viewValue.set(this.identityMatrix);
-    projectionValue.set(this.identityMatrix);
+    this.modelValue.set(this.identityMatrix);
+    this.viewValue.set(this.identityMatrix);
+    this.projectionValue.set(this.identityMatrix);
 
-    colorValue.set([Math.random(), Math.random(), Math.random(), 1]);
+    // colorValue.set([Math.random(), Math.random(), Math.random(), 1]);
+    this.colorValue.set([1.0, 1.0, 1.0, 1.0]); // white color
 
     const texture = await this.loadDoroTexture();
 
     const sampler = this.device.createSampler({
       label: 'sampler for object',
-      addressModeU: 'repeat', 
-      addressModeV: 'repeat',
+      addressModeU: 'clamp-to-edge',
+      addressModeV: 'clamp-to-edge',
       magFilter: 'linear',
       minFilter: 'linear',
       mipmapFilter: 'linear',
@@ -210,7 +399,7 @@ export class GameComponent {
     this.uniformValues = uniformValues;
     this.bindGroup = bindGroup;
 
-    const clearColor = { r: 0.0, g: 0.5, b: 1.0, a: 1.0 };
+    const clearColor = { r: 0.0, g: 0.0, b: 0.0, a: 0.0 };
     this.renderPassDescriptor = {
       colorAttachments: [
         {
@@ -223,29 +412,64 @@ export class GameComponent {
     };
   }
 
-  render() {
+  render(timestamp?: DOMHighResTimeStamp) {
+    if (this.lastTimestamp === null) {
+      this.lastTimestamp = timestamp || performance.now();
+    }
+
+    this.deltaTime = (timestamp || performance.now()) - this.lastTimestamp;
+    this.elapsedTime += this.deltaTime;
+    this.lastTimestamp = timestamp || performance.now();
+
     if (!this.context || !this.device || !this.renderPipeline || !this.vertexBuffer
-      || !this.commandEncoder || !this.renderPassDescriptor || !this.uniformBuffer
+      || !this.renderPassDescriptor || !this.uniformBuffer
       || !this.bindGroup || !this.uniformValues) {
       console.error("WebGPU not fully initialized.");
       return;
     }
 
-    const passEncoder = this.commandEncoder.beginRenderPass(this.renderPassDescriptor);
     const device = this.device;
+    const renderPassDescriptor = this.renderPassDescriptor;
 
-    passEncoder.setPipeline(this.renderPipeline);
-    passEncoder.setVertexBuffer(0, this.vertexBuffer);
+    if (!renderPassDescriptor)
+      throw new Error("Render pass descriptor is not defined.");
+
+    const aspectRatio = this.context.canvas.width / this.context.canvas.height;
+
+    // set the view matrix to identity
+    this.viewValue.set(Matrix4x4.identity());
+
+    const scale = 0.5;
+
+    //transform the model matrix
+    const modelMatrix = new Matrix3x3()
+      .scale([scale, scale * aspectRatio])
+      .rotate(this.elapsedTime * Math.PI * 0.001)
+      .translate([0, 0])
+
+    this.modelValue.set(modelMatrix.toMat4());
 
     // upload the uniform values to the uniform buffer
     device.queue.writeBuffer(this.uniformBuffer, 0, this.uniformValues);
 
-    passEncoder.setBindGroup(0, this.bindGroup);
+    //@ts-ignore
+    renderPassDescriptor.colorAttachments[0].view = this.context.getCurrentTexture().createView();
+    const encoder = device.createCommandEncoder({
+      label: 'render quad encoder',
+    });
 
-    passEncoder.draw(6);
-    passEncoder.end();
+    const pass = encoder.beginRenderPass(renderPassDescriptor);
+    pass.setPipeline(this.renderPipeline);
+    pass.setBindGroup(0, this.bindGroup);
+    pass.setVertexBuffer(0, this.vertexBuffer);
+    pass.setBindGroup(0, this.bindGroup);
 
-    device.queue.submit([this.commandEncoder.finish()]);
+    pass.draw(6);
+    pass.end();
+
+    const commandBuffer = encoder.finish();
+    device.queue.submit([commandBuffer]);
+    requestAnimationFrame(this.render.bind(this));
   }
 
   async loadDoroTexture(): Promise<GPUTexture> {
