@@ -1,10 +1,83 @@
-// // @ts-nocheck
 import { Component } from '@angular/core';
+//I liek beeg file
 
 async function loadImageBitmap(url: URL | string): Promise<ImageBitmap> {
   const res = await fetch(url);
   const blob = await res.blob();
   return await createImageBitmap(blob, { colorSpaceConversion: 'none' });
+}
+
+class Tile {
+  constructor(
+    public id: number,
+    public x: number,
+    public y: number,
+    public descriptorId: number = 0,
+  ) {}
+
+  static fromArray(arr: number[]): Tile {
+    if (arr.length !== 5) {
+      throw new Error("Array must have exactly 5 elements.");
+    }
+    return new Tile(arr[0], arr[1], arr[2]);
+  }
+}
+
+enum TileFlags {
+  None = 0,
+  Collidable = 1 << 0, // 1
+  Animated = 1 << 1, // 2
+  FlippedHorizontally = 1 << 2, // 4
+  FlippedVertically = 1 << 3, // 8
+}
+
+enum TileType {
+  Empty = 0,
+  Solid = 1,
+  Water = 2,
+  Lava = 3,
+  Grass = 4,
+  Sand = 5,
+  Stone = 6,
+}
+
+class TileDescriptor {
+  constructor(
+    public id: number,
+    public type: TileType,
+    public textureId: number = 0,
+    public flags: TileFlags = TileFlags.None,
+  ) {}
+
+  static fromArray(arr: number[]): TileDescriptor {
+    if (arr.length !== 4) {
+      throw new Error("Array must have exactly 4 elements.");
+    }
+    return new TileDescriptor(arr[0], arr[1], arr[2], arr[3]);
+  }
+}
+
+const kTileSize = 16; // 16x16 pixels
+const kTilemapWidth = 100; // 100 tiles wide
+const kTilemapHeight = 100; // 100 tiles high
+const kTileDescriptors: TileDescriptor[] = [
+  new TileDescriptor(0, TileType.Empty, 0, TileFlags.None),
+  new TileDescriptor(1, TileType.Solid, 1, TileFlags.Collidable),
+  new TileDescriptor(2, TileType.Water, 2, TileFlags.None),
+  new TileDescriptor(3, TileType.Lava, 3, TileFlags.Collidable | TileFlags.FlippedHorizontally),
+  new TileDescriptor(4, TileType.Grass, 4, TileFlags.Animated),
+  new TileDescriptor(5, TileType.Sand, 5, TileFlags.FlippedVertically),
+  new TileDescriptor(6, TileType.Stone, 6, TileFlags.Collidable | TileFlags.Animated),
+];
+
+class Tilemap {
+  constructor(
+    public width: number,
+    public height: number,
+    public tileWidth: number,
+    public tileHeight: number,
+    public tiles: Tile[][],
+  ) {}
 }
 
 class Matrix4x4 extends Float32Array {
@@ -253,10 +326,14 @@ export class GameComponent {
   projectionValue: Float32Array = new Float32Array(16); // 4x4 matrix
   colorValue: Float32Array = new Float32Array(4); // RGBA color
 
-  //game stuff
+  //engine stuff
   deltaTime = 0;
   elapsedTime = 0;
   lastTimestamp: DOMHighResTimeStamp | null = null;
+
+  //game stuff
+  tilemap: Tilemap | null = null;
+  tileset: Tile[] = [];
 
   async initWebGPU() {
     if (!navigator.gpu) {
@@ -410,6 +487,23 @@ export class GameComponent {
         },
       ],
     };
+
+    const observer = new ResizeObserver(entries => {
+      if (this.device === undefined || this.context === null) {
+        console.error("WebGPU device or context not initialized.");
+        return;
+      }
+
+      for (const entry of entries) {
+        const canvas = entry.target as HTMLCanvasElement;
+        const width = entry.contentBoxSize[0].inlineSize;
+        const height = entry.contentBoxSize[0].blockSize;
+        canvas.width = Math.max(1, Math.min(width, this.device.limits.maxTextureDimension2D));
+        canvas.height = Math.max(1, Math.min(height, this.device.limits.maxTextureDimension2D));
+      }
+
+    });
+    observer.observe(canvas);
   }
 
   render(timestamp?: DOMHighResTimeStamp) {
