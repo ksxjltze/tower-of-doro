@@ -13,7 +13,7 @@ class Tile {
     public x: number,
     public y: number,
     public descriptorId: number = 0,
-  ) {}
+  ) { }
 
   static fromArray(arr: number[]): Tile {
     if (arr.length !== 5) {
@@ -47,7 +47,7 @@ class TileDescriptor {
     public type: TileType,
     public textureId: number = 0,
     public flags: TileFlags = TileFlags.None,
-  ) {}
+  ) { }
 
   static fromArray(arr: number[]): TileDescriptor {
     if (arr.length !== 4) {
@@ -69,16 +69,6 @@ const kTileDescriptors: TileDescriptor[] = [
   new TileDescriptor(5, TileType.Sand, 5, TileFlags.FlippedVertically),
   new TileDescriptor(6, TileType.Stone, 6, TileFlags.Collidable | TileFlags.Animated),
 ];
-
-class Tilemap {
-  constructor(
-    public width: number,
-    public height: number,
-    public tileWidth: number,
-    public tileHeight: number,
-    public tiles: Tile[][],
-  ) {}
-}
 
 class Matrix4x4 extends Float32Array {
   constructor() {
@@ -303,6 +293,48 @@ export class GameComponent {
     }
     `;
 
+  tilemapShader = `
+    struct VertexOut {
+      @builtin(position) position : vec4f,
+      @location(0) color : vec4f,
+    }
+
+    struct Tile {
+      position: vec2f
+    }
+
+    struct Uniforms {
+      model: mat4x4f,
+      view: mat4x4f,
+      projection: mat4x4f,
+      color: vec4f,
+    }
+
+      @group(0) @binding(0) var<storage, read> tilemap: array<Tile>;
+      @group(0) @binding(1) var<uniform> uniforms: Uniforms;
+
+      @vertex
+      fn vertex_main(
+        @location(0) position: vec4f, 
+        @location(1) uv: vec2f,
+        @builtin(instance_index) instanceIndex: u32) -> VertexOut
+      {
+        let tile = tilemap[instanceIndex];
+
+        var output: VertexOut;
+        output.position = (uniforms.projection * uniforms.view * uniforms.model) * vec4f(position.xy + vec2f(tile.position.x, tile.position.y), 0.0, 1.0);
+        output.color = uniforms.color;
+
+        return output;
+      }
+
+      @fragment
+      fn fragment_main(fragData : VertexOut) -> @location(0) vec4f
+      {
+        return fragData.color;
+      }
+    `;
+
   identityMatrix = [
     1, 0, 0, 0,
     0, 1, 0, 0,
@@ -315,10 +347,17 @@ export class GameComponent {
   device?: GPUDevice = undefined;
   vertexBuffer?: GPUBuffer = undefined;
   renderPipeline?: GPURenderPipeline = undefined;
+
   renderPassDescriptor?: GPURenderPassDescriptor = undefined;
   uniformBuffer?: GPUBuffer = undefined;
   uniformValues?: Float32Array | GPUAllowSharedBufferSource = undefined;
   bindGroup?: GPUBindGroup = undefined;
+
+  //tilemap
+  tileMapBuffer?: GPUBuffer = undefined;
+  tileMapPipeline?: GPURenderPipeline = undefined;
+  tileMapBindGroup?: GPUBindGroup = undefined;
+  tileMapValues?: Float32Array | GPUAllowSharedBufferSource  = undefined;
 
   // Uniform values
   modelValue: Float32Array = new Float32Array(16); // 4x4 matrix
@@ -331,9 +370,8 @@ export class GameComponent {
   elapsedTime = 0;
   lastTimestamp: DOMHighResTimeStamp | null = null;
 
-  //game stuff
-  tilemap: Tilemap | null = null;
-  tileset: Tile[] = [];
+  //camera?
+  baseScale = 2.0 / kTileSize;
 
   async initWebGPU() {
     if (!navigator.gpu) {
@@ -350,6 +388,10 @@ export class GameComponent {
 
     const shaderModule = device.createShaderModule({
       code: this.shaders,
+    });
+
+    const tileMapShader = device.createShaderModule({
+      code: this.tilemapShader,
     });
 
     const canvas = document.querySelector("#gameCanvas") as HTMLCanvasElement;
@@ -422,7 +464,29 @@ export class GameComponent {
       layout: "auto",
     };
 
+    const tileMapPipelineDescriptor: GPURenderPipelineDescriptor = {
+      vertex: {
+        module: tileMapShader,
+        entryPoint: "vertex_main",
+        buffers: vertexBuffers,
+      },
+      fragment: {
+        module: tileMapShader,
+        entryPoint: "fragment_main",
+        targets: [
+          {
+            format: navigator.gpu.getPreferredCanvasFormat(),
+          },
+        ],
+      },
+      primitive: {
+        topology: "triangle-list",
+      },
+      layout: "auto",
+    };
+
     this.renderPipeline = device.createRenderPipeline(pipelineDescriptor);
+    this.tileMapPipeline = device.createRenderPipeline(tileMapPipelineDescriptor);
 
     //4 matrices of 4x4 floats (16 floats each, 4 bytes each) and a color vector of 4 floats
     const uniformBufferSize = 4 * 4 * 4 * Float32Array.BYTES_PER_ELEMENT + 4 * Float32Array.BYTES_PER_ELEMENT + 4;
@@ -471,6 +535,41 @@ export class GameComponent {
         { binding: 2, resource: texture.createView() },
       ],
     });
+
+    //tilemap setup
+    const tileMapBufferLength = kTilemapWidth * kTilemapHeight * 4;
+    const tileMapBufferSize = tileMapBufferLength * Float32Array.BYTES_PER_ELEMENT;
+    this.tileMapBuffer = device.createBuffer({
+      label: 'tilemap buffer',
+      size: tileMapBufferSize, // position (2 floats)
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+    });
+
+    const kPositionOffset = 2 * Float32Array.BYTES_PER_ELEMENT; // 2 floats (x, y) per tile
+    const tileMapData = new Float32Array(tileMapBufferLength); // 2 floats per tile (x, y)
+    for (let i = 0; i < kTilemapWidth * kTilemapHeight; i++) {
+      // Set position based on tile index
+      const x = (i % kTilemapWidth);
+      const y = Math.floor(i / kTilemapWidth);
+
+      tileMapData[i * kPositionOffset] = x; // x position
+      tileMapData[i * kPositionOffset + 1] = y; // y position
+    }
+
+    this.tileMapValues = tileMapData;
+    device.queue.writeBuffer(this.tileMapBuffer, 0, tileMapData, 0, tileMapData.length);
+
+    const tilemapBindGroupLayout = this.tileMapPipeline.getBindGroupLayout(0);
+    const tileMapBindGroup = device.createBindGroup({
+      label: 'bind group for tilemap',
+      layout: tilemapBindGroupLayout,
+      entries: [
+        { binding: 0, resource: { buffer: this.tileMapBuffer } },
+        { binding: 1, resource: { buffer: uniformBuffer } },
+      ],
+    });
+
+    this.tileMapBindGroup = tileMapBindGroup;
 
     this.uniformBuffer = uniformBuffer;
     this.uniformValues = uniformValues;
@@ -533,19 +632,6 @@ export class GameComponent {
     // set the view matrix to identity
     this.viewValue.set(Matrix4x4.identity());
 
-    const scale = 0.5;
-
-    //transform the model matrix
-    const modelMatrix = new Matrix3x3()
-      .scale([scale, scale * aspectRatio])
-      .rotate(this.elapsedTime * Math.PI * 0.001)
-      .translate([0, 0])
-
-    this.modelValue.set(modelMatrix.toMat4());
-
-    // upload the uniform values to the uniform buffer
-    device.queue.writeBuffer(this.uniformBuffer, 0, this.uniformValues);
-
     //@ts-ignore
     renderPassDescriptor.colorAttachments[0].view = this.context.getCurrentTexture().createView();
     const encoder = device.createCommandEncoder({
@@ -553,6 +639,30 @@ export class GameComponent {
     });
 
     const pass = encoder.beginRenderPass(renderPassDescriptor);
+    if (this.tileMapPipeline && this.tileMapBindGroup && this.tileMapBuffer && this.tileMapValues) {
+      // upload the uniform values to the uniform buffer
+      device.queue.writeBuffer(this.tileMapBuffer, 0, this.tileMapValues);
+      device.queue.writeBuffer(this.uniformBuffer, 0, this.uniformValues);
+
+      pass.setPipeline(this.tileMapPipeline);
+      pass.setBindGroup(0, this.tileMapBindGroup);
+      pass.setVertexBuffer(0, this.vertexBuffer);
+      pass.setBindGroup(0, this.tileMapBindGroup);
+
+      pass.draw(6, kTilemapWidth * kTilemapHeight, 0, 0); // draw all tiles
+    }
+
+    //transform the model matrix
+    const scale = this.baseScale; // scale to fit the tile size
+    const modelMatrix = new Matrix3x3()
+      .translate([0, 0])
+      .scale([scale, scale * aspectRatio])
+
+    this.modelValue.set(modelMatrix.toMat4());
+
+    // upload the uniform values to the uniform buffer
+    device.queue.writeBuffer(this.uniformBuffer, 0, this.uniformValues);
+
     pass.setPipeline(this.renderPipeline);
     pass.setBindGroup(0, this.bindGroup);
     pass.setVertexBuffer(0, this.vertexBuffer);
