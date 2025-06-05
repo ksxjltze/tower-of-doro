@@ -70,86 +70,9 @@ const kTileDescriptors: TileDescriptor[] = [
   new TileDescriptor(6, TileType.Stone, 6, TileFlags.Collidable | TileFlags.Animated),
 ];
 
-class Matrix4x4 extends Float32Array {
-  constructor() {
-    super(16);
-    this.set(Matrix4x4.identityValues());
-  }
-
-  static identityValues(): number[] {
-    return [
-      1, 0, 0, 0,
-      0, 1, 0, 0,
-      0, 0, 1, 0,
-      0, 0, 0, 1,
-    ];
-  }
-
-  static identity(): Matrix4x4 {
-    return new Matrix4x4();
-  }
-
-  static fromArray(arr: number[]): Matrix4x4 {
-    if (arr.length !== 16) {
-      throw new Error("Array must have exactly 16 elements.");
-    }
-
-    const matrix = new Matrix4x4();
-    matrix.set(arr);
-
-    return matrix;
-  }
-}
-
 class Matrix3x3 extends Float32Array {
   constructor() {
-    super(9);
-    this.set(Matrix3x3.identityValues());
-  }
-
-  static identityValues(): number[] {
-    return [
-      1, 0, 0,
-      0, 1, 0,
-      0, 0, 1,
-    ];
-  }
-
-  static identity(): Matrix3x3 {
-    return new Matrix3x3();
-  }
-
-  static fromArray(arr: number[]): Matrix3x3 {
-    if (arr.length !== 9) {
-      throw new Error("Array must have exactly 9 elements.");
-    }
-
-    const matrix = new Matrix3x3();
-    matrix.set(arr);
-
-    return matrix;
-  }
-
-  static fromFloat32Array(arr: Float32Array): Matrix3x3 {
-    if (arr.length !== 9) {
-      throw new Error("Float32Array must have exactly 9 elements.");
-    }
-    return arr as Matrix3x3;
-  }
-
-  static fromMatrix4x4(m: Matrix4x4): Matrix3x3 {
-    const matrix = new Matrix3x3();
-    if (m.length !== 16) {
-      throw new Error("Matrix4x4 must have exactly 16 elements.");
-    }
-    // Extract the 3x3 part from the 4x4 matrix
-    matrix.set([
-      m[0], m[1], m[2],
-      m[4], m[5], m[6],
-      m[8], m[9], m[10],
-    ]);
-
-    return matrix;
+    super(12);
   }
 
   override set(arr: number[]): Matrix3x3 {
@@ -160,86 +83,159 @@ class Matrix3x3 extends Float32Array {
     return this;
   }
 
-  multiply(b: Matrix3x3) {
-    const a = this;
-
-    const a00 = a[0 * 3 + 0];
-    const a01 = a[0 * 3 + 1];
-    const a02 = a[0 * 3 + 2];
-    const a10 = a[1 * 3 + 0];
-    const a11 = a[1 * 3 + 1];
-    const a12 = a[1 * 3 + 2];
-    const a20 = a[2 * 3 + 0];
-    const a21 = a[2 * 3 + 1];
-    const a22 = a[2 * 3 + 2];
-    const b00 = b[0 * 3 + 0];
-    const b01 = b[0 * 3 + 1];
-    const b02 = b[0 * 3 + 2];
-    const b10 = b[1 * 3 + 0];
-    const b11 = b[1 * 3 + 1];
-    const b12 = b[1 * 3 + 2];
-    const b20 = b[2 * 3 + 0];
-    const b21 = b[2 * 3 + 1];
-    const b22 = b[2 * 3 + 2];
-
-    this.set([
-      b00 * a00 + b01 * a10 + b02 * a20,
-      b00 * a01 + b01 * a11 + b02 * a21,
-      b00 * a02 + b01 * a12 + b02 * a22,
-      b10 * a00 + b11 * a10 + b12 * a20,
-      b10 * a01 + b11 * a11 + b12 * a21,
-      b10 * a02 + b11 * a12 + b12 * a22,
-      b20 * a00 + b21 * a10 + b22 * a20,
-      b20 * a01 + b21 * a11 + b22 * a21,
-      b20 * a02 + b21 * a12 + b22 * a22,
-    ]);
-
-    return this;
+  static projection(width: number, height: number) {
+    // Note: This matrix flips the Y axis so that 0 is at the top.
+    const dst = new Matrix3x3();
+    dst[0] = 2 / width;  dst[1] = 0;             dst[2] = 0;
+    dst[4] = 0;          dst[5] = -2 / height;   dst[6] = 0;
+    dst[8] = -1;         dst[9] = 1;             dst[10] = 1;
+    return dst;
   };
 
-  translate([tx, ty]: [number, number]): Matrix3x3 {
-    this.multiply(new Matrix3x3().set([
-      1, 0, 0,
-      0, 1, 0,
-      tx, ty, 1,
-    ]));
+  static identity() {
+    const dst = new Matrix3x3();
 
-    return this;
+    dst[0] = 1;  dst[1] = 0;  dst[2] = 0;
+    dst[4] = 0;  dst[5] = 1;  dst[6] = 0;
+    dst[8] = 0;  dst[9] = 0;  dst[10] = 1;
+
+    return dst;
   };
 
-  rotate(angleInRadians: number): Matrix3x3 {
+  static multiply(a: Float32Array, b: Float32Array) {
+    const dst = new Matrix3x3();
+
+    const a00 = a[0 * 4 + 0];
+    const a01 = a[0 * 4 + 1];
+    const a02 = a[0 * 4 + 2];
+    const a10 = a[1 * 4 + 0];
+    const a11 = a[1 * 4 + 1];
+    const a12 = a[1 * 4 + 2];
+    const a20 = a[2 * 4 + 0];
+    const a21 = a[2 * 4 + 1];
+    const a22 = a[2 * 4 + 2];
+    const b00 = b[0 * 4 + 0];
+    const b01 = b[0 * 4 + 1];
+    const b02 = b[0 * 4 + 2];
+    const b10 = b[1 * 4 + 0];
+    const b11 = b[1 * 4 + 1];
+    const b12 = b[1 * 4 + 2];
+    const b20 = b[2 * 4 + 0];
+    const b21 = b[2 * 4 + 1];
+    const b22 = b[2 * 4 + 2];
+
+    dst[ 0] = b00 * a00 + b01 * a10 + b02 * a20;
+    dst[ 1] = b00 * a01 + b01 * a11 + b02 * a21;
+    dst[ 2] = b00 * a02 + b01 * a12 + b02 * a22;
+
+    dst[ 4] = b10 * a00 + b11 * a10 + b12 * a20;
+    dst[ 5] = b10 * a01 + b11 * a11 + b12 * a21;
+    dst[ 6] = b10 * a02 + b11 * a12 + b12 * a22;
+
+    dst[ 8] = b20 * a00 + b21 * a10 + b22 * a20;
+    dst[ 9] = b20 * a01 + b21 * a11 + b22 * a21;
+    dst[10] = b20 * a02 + b21 * a12 + b22 * a22;
+
+    return dst;
+  };
+
+  static translation([tx, ty]: [number, number]) {
+    const dst = new Matrix3x3();
+
+    dst[0] = 1;   dst[1] = 0;   dst[2] = 0;
+    dst[4] = 0;   dst[5] = 1;   dst[6] = 0;
+    dst[8] = tx;  dst[9] = ty;  dst[10] = 1;
+
+    return dst;
+  };
+
+  static rotation(angleInRadians: number) {
     const c = Math.cos(angleInRadians);
     const s = Math.sin(angleInRadians);
+    const dst = new Matrix3x3();
 
-    this.multiply(new Matrix3x3().set([
-      c, s, 0,
-      -s, c, 0,
-      0, 0, 1,
-    ]));
+    dst[0] = c;   dst[1] = s;  dst[2] = 0;
+    dst[4] = -s;  dst[5] = c;  dst[6] = 0;
+    dst[8] = 0;   dst[9] = 0;  dst[10] = 1;
+
+    return dst;
+
+  };
+
+  static scaling([sx, sy]: [number, number]) {
+    const dst = new Matrix3x3();
+
+    dst[0] = sx;  dst[1] = 0;   dst[2] = 0;
+    dst[4] = 0;   dst[5] = sy;  dst[6] = 0;
+    dst[8] = 0;   dst[9] = 0;   dst[10] = 1;
+
+    return dst;
+  };
+
+  static translate(m: Float32Array, translation: [number, number]) {
+    return Matrix3x3.multiply(m, Matrix3x3.translation(translation));
+  };
+
+  static rotate(m: Float32Array, angleInRadians: number) {
+    return Matrix3x3.multiply(m, Matrix3x3.rotation(angleInRadians));
+  };
+
+  static scale(m: Float32Array, scale: [number, number]) {
+    return Matrix3x3.multiply(m, Matrix3x3.scaling(scale));
+  };
+
+  multiply(a: Float32Array, b: Float32Array) {
+    const a00 = a[0 * 4 + 0];
+    const a01 = a[0 * 4 + 1];
+    const a02 = a[0 * 4 + 2];
+    const a10 = a[1 * 4 + 0];
+    const a11 = a[1 * 4 + 1];
+    const a12 = a[1 * 4 + 2];
+    const a20 = a[2 * 4 + 0];
+    const a21 = a[2 * 4 + 1];
+    const a22 = a[2 * 4 + 2];
+    const b00 = b[0 * 4 + 0];
+    const b01 = b[0 * 4 + 1];
+    const b02 = b[0 * 4 + 2];
+    const b10 = b[1 * 4 + 0];
+    const b11 = b[1 * 4 + 1];
+    const b12 = b[1 * 4 + 2];
+    const b20 = b[2 * 4 + 0];
+    const b21 = b[2 * 4 + 1];
+    const b22 = b[2 * 4 + 2];
+
+    this[ 0] = b00 * a00 + b01 * a10 + b02 * a20;
+    this[ 1] = b00 * a01 + b01 * a11 + b02 * a21;
+    this[ 2] = b00 * a02 + b01 * a12 + b02 * a22;
+
+    this[ 4] = b10 * a00 + b11 * a10 + b12 * a20;
+    this[ 5] = b10 * a01 + b11 * a11 + b12 * a21;
+    this[ 6] = b10 * a02 + b11 * a12 + b12 * a22;
+
+    this[ 8] = b20 * a00 + b21 * a10 + b22 * a20;
+    this[ 9] = b20 * a01 + b21 * a11 + b22 * a21;
+    this[10] = b20 * a02 + b21 * a12 + b22 * a22;
 
     return this;
   };
 
-  scale([sx, sy]: [number, number]): Matrix3x3 {
-    this.multiply(new Matrix3x3().set([
-      sx, 0, 0,
-      0, sy, 0,
-      0, 0, 1,
-    ]));
+  translate(translation: [number, number]) {
+    this.multiply(this, Matrix3x3.translation(translation));
+    
+    return this;
+  };
+
+  rotate(angleInRadians: number) {
+    this.multiply(this, Matrix3x3.rotation(angleInRadians));
 
     return this;
   };
 
-  toMat4(): Float32Array {
-    const m = this;
+  scale(scale: [number, number]) {
+    this.multiply(this, Matrix3x3.scaling(scale));
 
-    return new Float32Array([
-      m[0], m[1], m[2], 0,
-      m[3], m[4], m[5], 0,
-      m[6], m[7], m[8], 0,
-      0, 0, 0, 1,
-    ]);
-  }
+    return this;
+  };
 }
 
 @Component({
@@ -266,10 +262,8 @@ export class GameComponent {
     }
 
     struct Uniforms {
-      model: mat4x4f,
-      view: mat4x4f,
-      projection: mat4x4f,
       color: vec4f,
+      matrix: mat3x3f,
     }
 
     @group(0) @binding(0) var<uniform> uniforms: Uniforms;
@@ -280,9 +274,11 @@ export class GameComponent {
     fn vertex_main(@location(0) position: vec4f, @location(1) uv: vec2f) -> VertexOut
     {
       var output : VertexOut;
+      let clipSpace = (uniforms.matrix * vec3f(position.xy, 1.0)).xy;
 
-      output.position = uniforms.projection * uniforms.view * uniforms.model * vec4f(position.xy, 0.0, 1.0);
+      output.position = vec4f(clipSpace, 0.0, 1.0);
       output.uv = uv;
+
       return output;
     }
 
@@ -304,35 +300,34 @@ export class GameComponent {
     }
 
     struct Uniforms {
-      model: mat4x4f,
-      view: mat4x4f,
-      projection: mat4x4f,
       color: vec4f,
+      matrix: mat3x3f,
     }
 
-      @group(0) @binding(0) var<storage, read> tilemap: array<Tile>;
-      @group(0) @binding(1) var<uniform> uniforms: Uniforms;
+    @group(0) @binding(0) var<storage, read> tilemap: array<Tile>;
+    @group(0) @binding(1) var<uniform> uniforms: Uniforms;
 
-      @vertex
-      fn vertex_main(
-        @location(0) position: vec4f, 
-        @location(1) uv: vec2f,
-        @builtin(instance_index) instanceIndex: u32) -> VertexOut
-      {
-        let tile = tilemap[instanceIndex];
+    @vertex
+    fn vertex_main(
+      @location(0) position: vec4f, 
+      @location(1) uv: vec2f,
+      @builtin(instance_index) instanceIndex: u32) -> VertexOut
+    {
+      let tile = tilemap[instanceIndex];
 
-        var output: VertexOut;
-        output.position = (uniforms.projection * uniforms.view * uniforms.model) * vec4f(position.xy + vec2f(tile.position.x, tile.position.y), 0.0, 1.0);
-        output.color = uniforms.color;
+      var output: VertexOut;
+      let clipSpace = (uniforms.matrix * vec3f(position.xy, 1.0)).xy;
 
-        return output;
-      }
+      output.position = vec4f(clipSpace, 0.0, 1.0);
 
-      @fragment
-      fn fragment_main(fragData : VertexOut) -> @location(0) vec4f
-      {
-        return fragData.color;
-      }
+      return output;
+    }
+
+    @fragment
+    fn fragment_main(fragData : VertexOut) -> @location(0) vec4f
+    {
+      return fragData.color;
+    }
     `;
 
   identityMatrix = [
@@ -360,10 +355,8 @@ export class GameComponent {
   tileMapValues?: Float32Array | GPUAllowSharedBufferSource  = undefined;
 
   // Uniform values
-  modelValue: Float32Array = new Float32Array(16); // 4x4 matrix
-  viewValue: Float32Array = new Float32Array(16); // 4x4 matrix
-  projectionValue: Float32Array = new Float32Array(16); // 4x4 matrix
-  colorValue: Float32Array = new Float32Array(4); // RGBA color
+  matrixValue: Float32Array = new Float32Array();
+  colorValue: Float32Array = new Float32Array();
 
   //engine stuff
   deltaTime = 0;
@@ -488,8 +481,7 @@ export class GameComponent {
     this.renderPipeline = device.createRenderPipeline(pipelineDescriptor);
     this.tileMapPipeline = device.createRenderPipeline(tileMapPipelineDescriptor);
 
-    //4 matrices of 4x4 floats (16 floats each, 4 bytes each) and a color vector of 4 floats
-    const uniformBufferSize = 4 * 4 * 4 * Float32Array.BYTES_PER_ELEMENT + 4 * Float32Array.BYTES_PER_ELEMENT + 4;
+    const uniformBufferSize = (4 + 12) * 4;
     const uniformBuffer = device.createBuffer({
       label: 'uniforms',
       size: uniformBufferSize,
@@ -498,19 +490,14 @@ export class GameComponent {
     const uniformValues = new Float32Array(uniformBufferSize / 4);
 
     // offsets to the various uniform values in float32 indices
-    const kModelMatrixOffset = 0;
-    const kViewMatrixOffset = 16; // 4x4 matrix = 16 floats
-    const kProjectionMatrixOffset = 32; // 4x4 matrix = 16 floats
-    const kColorOffset = 48; // 4 floats for color
+    const kColorOffset = 0;
+    const kMatrixOffset = 4;
 
-    this.colorValue = uniformValues.subarray(kColorOffset, kColorOffset + 4);
-    this.modelValue = uniformValues.subarray(kModelMatrixOffset, kModelMatrixOffset + 16);
-    this.viewValue = uniformValues.subarray(kViewMatrixOffset, kViewMatrixOffset + 16);
-    this.projectionValue = uniformValues.subarray(kProjectionMatrixOffset, kProjectionMatrixOffset + 16);
+    const colorValue = uniformValues.subarray(kColorOffset, kColorOffset + 4);
+    const matrixValue = uniformValues.subarray(kMatrixOffset, kMatrixOffset + 12);
 
-    this.modelValue.set(this.identityMatrix);
-    this.viewValue.set(this.identityMatrix);
-    this.projectionValue.set(this.identityMatrix);
+    this.colorValue = colorValue;
+    this.matrixValue = matrixValue;
 
     // colorValue.set([Math.random(), Math.random(), Math.random(), 1]);
     this.colorValue.set([1.0, 1.0, 1.0, 1.0]); // white color
@@ -629,9 +616,6 @@ export class GameComponent {
 
     const aspectRatio = this.context.canvas.width / this.context.canvas.height;
 
-    // set the view matrix to identity
-    this.viewValue.set(Matrix4x4.identity());
-
     //@ts-ignore
     renderPassDescriptor.colorAttachments[0].view = this.context.getCurrentTexture().createView();
     const encoder = device.createCommandEncoder({
@@ -654,11 +638,12 @@ export class GameComponent {
 
     //transform the model matrix
     const scale = this.baseScale; // scale to fit the tile size
-    const modelMatrix = new Matrix3x3()
-      .translate([0, 0])
-      .scale([scale, scale * aspectRatio])
+    const matrix = Matrix3x3.identity();
 
-    this.modelValue.set(modelMatrix.toMat4());
+    matrix.translate([-0.25, 0]);
+    matrix.scale([scale, scale * aspectRatio]);
+
+    this.matrixValue.set(matrix);
 
     // upload the uniform values to the uniform buffer
     device.queue.writeBuffer(this.uniformBuffer, 0, this.uniformValues);
