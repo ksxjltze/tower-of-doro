@@ -316,9 +316,10 @@ export class GameComponent {
       let tile = tilemap[instanceIndex];
 
       var output: VertexOut;
-      let clipSpace = (uniforms.matrix * vec3f(position.xy, 1.0)).xy;
+      let clipSpace = (uniforms.matrix * vec3f(position.xy + tile.position, 1.0)).xy;
 
       output.position = vec4f(clipSpace, 0.0, 1.0);
+      output.color = uniforms.color;
 
       return output;
     }
@@ -353,6 +354,11 @@ export class GameComponent {
   tileMapPipeline?: GPURenderPipeline = undefined;
   tileMapBindGroup?: GPUBindGroup = undefined;
   tileMapValues?: Float32Array | GPUAllowSharedBufferSource  = undefined;
+  tileMapUniformsBuffer?: GPUBuffer = undefined;
+  tileMapUniformValues?: Float32Array | GPUAllowSharedBufferSource = undefined;
+
+  tileMapMatrixValue: Float32Array = new Float32Array(12); // 3x4 matrix for tilemap transformations
+  tileMapColor: Float32Array = new Float32Array(4); // RGBA color for tilemap
 
   // Uniform values
   matrixValue: Float32Array = new Float32Array();
@@ -436,131 +442,8 @@ export class GameComponent {
       },
     ];
 
-    const pipelineDescriptor: GPURenderPipelineDescriptor = {
-      vertex: {
-        module: shaderModule,
-        entryPoint: "vertex_main",
-        buffers: vertexBuffers,
-      },
-      fragment: {
-        module: shaderModule,
-        entryPoint: "fragment_main",
-        targets: [
-          {
-            format: navigator.gpu.getPreferredCanvasFormat(),
-          },
-        ],
-      },
-      primitive: {
-        topology: "triangle-list",
-      },
-      layout: "auto",
-    };
-
-    const tileMapPipelineDescriptor: GPURenderPipelineDescriptor = {
-      vertex: {
-        module: tileMapShader,
-        entryPoint: "vertex_main",
-        buffers: vertexBuffers,
-      },
-      fragment: {
-        module: tileMapShader,
-        entryPoint: "fragment_main",
-        targets: [
-          {
-            format: navigator.gpu.getPreferredCanvasFormat(),
-          },
-        ],
-      },
-      primitive: {
-        topology: "triangle-list",
-      },
-      layout: "auto",
-    };
-
-    this.renderPipeline = device.createRenderPipeline(pipelineDescriptor);
-    this.tileMapPipeline = device.createRenderPipeline(tileMapPipelineDescriptor);
-
-    const uniformBufferSize = (4 + 12) * 4;
-    const uniformBuffer = device.createBuffer({
-      label: 'uniforms',
-      size: uniformBufferSize,
-      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-    });
-    const uniformValues = new Float32Array(uniformBufferSize / 4);
-
-    // offsets to the various uniform values in float32 indices
-    const kColorOffset = 0;
-    const kMatrixOffset = 4;
-
-    const colorValue = uniformValues.subarray(kColorOffset, kColorOffset + 4);
-    const matrixValue = uniformValues.subarray(kMatrixOffset, kMatrixOffset + 12);
-
-    this.colorValue = colorValue;
-    this.matrixValue = matrixValue;
-
-    // colorValue.set([Math.random(), Math.random(), Math.random(), 1]);
-    this.colorValue.set([1.0, 1.0, 1.0, 1.0]); // white color
-
-    const texture = await this.loadDoroTexture();
-
-    const sampler = this.device.createSampler({
-      label: 'sampler for object',
-      addressModeU: 'clamp-to-edge',
-      addressModeV: 'clamp-to-edge',
-      magFilter: 'linear',
-      minFilter: 'linear',
-      mipmapFilter: 'linear',
-    });
-
-    const bindGroup = device.createBindGroup({
-      label: 'bind group for object',
-      layout: this.renderPipeline.getBindGroupLayout(0),
-      entries: [
-        { binding: 0, resource: { buffer: uniformBuffer } },
-        { binding: 1, resource: sampler },
-        { binding: 2, resource: texture.createView() },
-      ],
-    });
-
-    //tilemap setup
-    const tileMapBufferLength = kTilemapWidth * kTilemapHeight * 4;
-    const tileMapBufferSize = tileMapBufferLength * Float32Array.BYTES_PER_ELEMENT;
-    this.tileMapBuffer = device.createBuffer({
-      label: 'tilemap buffer',
-      size: tileMapBufferSize, // position (2 floats)
-      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
-    });
-
-    const kPositionOffset = 2 * Float32Array.BYTES_PER_ELEMENT; // 2 floats (x, y) per tile
-    const tileMapData = new Float32Array(tileMapBufferLength); // 2 floats per tile (x, y)
-    for (let i = 0; i < kTilemapWidth * kTilemapHeight; i++) {
-      // Set position based on tile index
-      const x = (i % kTilemapWidth);
-      const y = Math.floor(i / kTilemapWidth);
-
-      tileMapData[i * kPositionOffset] = x; // x position
-      tileMapData[i * kPositionOffset + 1] = y; // y position
-    }
-
-    this.tileMapValues = tileMapData;
-    device.queue.writeBuffer(this.tileMapBuffer, 0, tileMapData, 0, tileMapData.length);
-
-    const tilemapBindGroupLayout = this.tileMapPipeline.getBindGroupLayout(0);
-    const tileMapBindGroup = device.createBindGroup({
-      label: 'bind group for tilemap',
-      layout: tilemapBindGroupLayout,
-      entries: [
-        { binding: 0, resource: { buffer: this.tileMapBuffer } },
-        { binding: 1, resource: { buffer: uniformBuffer } },
-      ],
-    });
-
-    this.tileMapBindGroup = tileMapBindGroup;
-
-    this.uniformBuffer = uniformBuffer;
-    this.uniformValues = uniformValues;
-    this.bindGroup = bindGroup;
+    await this.createRenderPipeline(shaderModule, vertexBuffers);
+    await this.createTileMapPipeline(tileMapShader, vertexBuffers);
 
     const clearColor = { r: 0.0, g: 0.0, b: 0.0, a: 0.0 };
     this.renderPassDescriptor = {
@@ -590,6 +473,161 @@ export class GameComponent {
 
     });
     observer.observe(canvas);
+  }
+
+  async createRenderPipeline(shaderModule: GPUShaderModule, vertexBuffers: GPUVertexBufferLayout[]) {
+    const device = this.device;
+    if (!device)
+      return;
+
+    const pipelineDescriptor: GPURenderPipelineDescriptor = {
+      vertex: {
+        module: shaderModule,
+        entryPoint: "vertex_main",
+        buffers: vertexBuffers,
+      },
+      fragment: {
+        module: shaderModule,
+        entryPoint: "fragment_main",
+        targets: [
+          {
+            format: navigator.gpu.getPreferredCanvasFormat(),
+          },
+        ],
+      },
+      primitive: {
+        topology: "triangle-list",
+      },
+      layout: "auto",
+    };
+
+    this.renderPipeline = device.createRenderPipeline(pipelineDescriptor);
+    const uniformBufferSize = (4 + 12) * 4;
+    const uniformBuffer = device.createBuffer({
+      label: 'uniforms',
+      size: uniformBufferSize,
+      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+    });
+    const uniformValues = new Float32Array(uniformBufferSize / 4);
+
+    // offsets to the various uniform values in float32 indices
+    const kColorOffset = 0;
+    const kMatrixOffset = 4;
+
+    const colorValue = uniformValues.subarray(kColorOffset, kColorOffset + 4);
+    const matrixValue = uniformValues.subarray(kMatrixOffset, kMatrixOffset + 12);
+
+    this.colorValue = colorValue;
+    this.matrixValue = matrixValue;
+
+    // colorValue.set([Math.random(), Math.random(), Math.random(), 1]);
+    this.colorValue.set([1.0, 1.0, 1.0, 1.0]); // white color
+
+    const texture = await this.loadDoroTexture();
+
+    const sampler = device.createSampler({
+      label: 'sampler for object',
+      addressModeU: 'clamp-to-edge',
+      addressModeV: 'clamp-to-edge',
+      magFilter: 'linear',
+      minFilter: 'linear',
+      mipmapFilter: 'linear',
+    });
+
+    const bindGroup = device.createBindGroup({
+      label: 'bind group for object',
+      layout: this.renderPipeline.getBindGroupLayout(0),
+      entries: [
+        { binding: 0, resource: { buffer: uniformBuffer } },
+        { binding: 1, resource: sampler },
+        { binding: 2, resource: texture.createView() },
+      ],
+    });
+
+    this.uniformBuffer = uniformBuffer;
+    this.uniformValues = uniformValues;
+    this.bindGroup = bindGroup;
+  }
+
+  async createTileMapPipeline(tileMapShader: GPUShaderModule, vertexBuffers: GPUVertexBufferLayout[]) {
+    const device = this.device;
+    if (!device)
+      return;
+
+    //tilemap setup
+    const tileMapPipelineDescriptor: GPURenderPipelineDescriptor = {
+      vertex: {
+        module: tileMapShader,
+        entryPoint: "vertex_main",
+        buffers: vertexBuffers,
+      },
+      fragment: {
+        module: tileMapShader,
+        entryPoint: "fragment_main",
+        targets: [
+          {
+            format: navigator.gpu.getPreferredCanvasFormat(),
+          },
+        ],
+      },
+      primitive: {
+        topology: "triangle-list",
+      },
+      layout: "auto",
+    };
+    this.tileMapPipeline = device.createRenderPipeline(tileMapPipelineDescriptor);
+
+    const uniformBufferSize = (4 + 12) * 4;
+    const tileMapUniformBuffer = device.createBuffer({
+      label: 'tilemap uniforms',
+      size: uniformBufferSize,
+      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+    });
+    const tileMapUniformValues = new Float32Array(uniformBufferSize / 4);
+
+    const kColorOffset = 0;
+    const kMatrixOffset = 4;
+
+    const tileMapColorValue = tileMapUniformValues.subarray(kColorOffset, kColorOffset + 4);
+    const tileMapMatrixValue = tileMapUniformValues.subarray(kMatrixOffset, kMatrixOffset + 12);
+
+    this.tileMapColor = tileMapColorValue;
+    this.tileMapMatrixValue = tileMapMatrixValue;
+    
+    const tileMapBufferLength = kTilemapWidth * kTilemapHeight * 4;
+    const tileMapBufferSize = tileMapBufferLength * Float32Array.BYTES_PER_ELEMENT;
+    this.tileMapBuffer = device.createBuffer({
+      label: 'tilemap buffer',
+      size: tileMapBufferSize, // position (2 floats)
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+    });
+
+    const kPositionOffset = 2 * Float32Array.BYTES_PER_ELEMENT; // 2 floats (x, y) per tile
+    const tileMapData = new Float32Array(tileMapBufferLength); // 2 floats per tile (x, y)
+    for (let i = 0; i < kTilemapWidth * kTilemapHeight; i++) {
+      // Set position based on tile index
+      const x = (i % kTilemapWidth);
+      const y = Math.floor(i / kTilemapWidth);
+
+      tileMapData[i * kPositionOffset] = x; // x position
+      tileMapData[i * kPositionOffset + 1] = y; // y position
+    }
+
+    this.tileMapValues = tileMapData;
+    const tilemapBindGroupLayout = this.tileMapPipeline.getBindGroupLayout(0);
+    const tileMapBindGroup = device.createBindGroup({
+      label: 'bind group for tilemap',
+      layout: tilemapBindGroupLayout,
+      entries: [
+        { binding: 0, resource: { buffer: this.tileMapBuffer } },
+        { binding: 1, resource: { buffer: tileMapUniformBuffer } },
+      ],
+    });
+
+    this.tileMapBindGroup = tileMapBindGroup;
+    this.tileMapUniformsBuffer = tileMapUniformBuffer;
+    this.tileMapUniformValues = tileMapUniformValues;
+    this.tileMapColor.set([0.0, 1.0, 0.0, 1.0]); // white color for tilemap
   }
 
   render(timestamp?: DOMHighResTimeStamp) {
@@ -623,10 +661,18 @@ export class GameComponent {
     });
 
     const pass = encoder.beginRenderPass(renderPassDescriptor);
-    if (this.tileMapPipeline && this.tileMapBindGroup && this.tileMapBuffer && this.tileMapValues) {
+    if (this.tileMapPipeline && this.tileMapBindGroup && this.tileMapBuffer && this.tileMapValues && this.tileMapUniformValues && this.tileMapUniformsBuffer) {
       // upload the uniform values to the uniform buffer
       device.queue.writeBuffer(this.tileMapBuffer, 0, this.tileMapValues);
-      device.queue.writeBuffer(this.uniformBuffer, 0, this.uniformValues);
+
+    const scale = this.baseScale; // scale to fit the tile size
+    const matrix = Matrix3x3.identity();
+
+    matrix.translate([-1, -1]); //center the tilemap
+    matrix.scale([scale, scale * aspectRatio]);
+
+    this.tileMapMatrixValue.set(matrix);
+      device.queue.writeBuffer(this.tileMapUniformsBuffer, 0, this.tileMapUniformValues);
 
       pass.setPipeline(this.tileMapPipeline);
       pass.setBindGroup(0, this.tileMapBindGroup);
@@ -640,7 +686,7 @@ export class GameComponent {
     const scale = this.baseScale; // scale to fit the tile size
     const matrix = Matrix3x3.identity();
 
-    matrix.translate([-0.25, 0]);
+    matrix.translate([-0.0, 0]);
     matrix.scale([scale, scale * aspectRatio]);
 
     this.matrixValue.set(matrix);
