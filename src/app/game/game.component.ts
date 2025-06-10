@@ -1,10 +1,76 @@
 import { Component } from '@angular/core';
+import { buffer } from 'rxjs';
 //I liek beeg file
 
 async function loadImageBitmap(url: URL | string): Promise<ImageBitmap> {
   const res = await fetch(url);
   const blob = await res.blob();
   return await createImageBitmap(blob, { colorSpaceConversion: 'none' });
+}
+
+const Input = {
+  Key: {
+    W: 'w',
+    A: 'a',
+    S: 's',
+    D: 'd',
+  },
+
+  MouseButton: {
+    Left: 0,
+    Right: 1,
+    Middle: 2,
+  },
+
+  keyMap: new Map<string, boolean>(),
+  frameKeyMap: new Map<string, boolean>(),
+
+  GetKeyDown: (key: string): boolean => {
+    return Input.keyMap.get(key) === true;
+  },
+
+  GetKeyUp: (key: string): boolean => {
+    return Input.keyMap.get(key) === false;
+  },
+
+  GetKey: (key: string): boolean => {
+    return Input.keyMap.get(key) ?? false;
+  },
+
+  SetKey: (key: string, value: boolean): void => {
+    Input.keyMap.set(key, value);
+    Input.frameKeyMap.set(key, value);
+  },
+}
+
+class Vector2 {
+  constructor(
+    public x: number = 0,
+    public y: number = 0,
+  ) { }
+
+  static fromArray(arr: number[]): Vector2 {
+    if (arr.length !== 2) {
+      throw new Error("Array must have exactly 2 elements.");
+    }
+    return new Vector2(arr[0], arr[1]);
+  }
+}
+
+class Transform {
+  constructor(
+    public position: Vector2 = new Vector2(0, 0),
+    public rotation: number = 0,
+    public scale: [number, number] = [1, 1],
+  ) { }
+}
+
+class Player {
+  constructor(
+    public id: number,
+    public name: string,
+    public transform: Transform = new Transform(),
+  ) { }
 }
 
 class Tile {
@@ -249,10 +315,12 @@ export class GameComponent {
     console.log("GameComponent initialized");
 
     this.initWebGPU()
-      .then(() => requestAnimationFrame(this.render.bind(this)))
+      .then(() => requestAnimationFrame(this.runGameLoop.bind(this)))
       .catch((error) => {
         console.error("Error initializing WebGPU:", error);
       });
+
+    this.setupInput();
   }
 
   shaders = `
@@ -293,6 +361,7 @@ export class GameComponent {
     struct VertexOut {
       @builtin(position) position : vec4f,
       @location(0) color : vec4f,
+      @location(1) uv : vec2f,
     }
 
     struct Tile {
@@ -306,6 +375,8 @@ export class GameComponent {
 
     @group(0) @binding(0) var<storage, read> tilemap: array<Tile>;
     @group(0) @binding(1) var<uniform> uniforms: Uniforms;
+    @group(0) @binding(2) var sampler2d: sampler;
+    @group(0) @binding(3) var texture: texture_2d<f32>;
 
     @vertex
     fn vertex_main(
@@ -319,6 +390,7 @@ export class GameComponent {
       let clipSpace = (uniforms.matrix * vec3f(position.xy + tile.position, 1.0)).xy;
 
       output.position = vec4f(clipSpace, 0.0, 1.0);
+      output.uv = uv;
       output.color = uniforms.color;
 
       return output;
@@ -327,7 +399,7 @@ export class GameComponent {
     @fragment
     fn fragment_main(fragData : VertexOut) -> @location(0) vec4f
     {
-      return fragData.color;
+      return textureSample(texture, sampler2d, fragData.uv) * fragData.color;
     }
     `;
 
@@ -371,6 +443,9 @@ export class GameComponent {
 
   //camera?
   baseScale = 2.0 / kTileSize;
+
+  //game
+ player: Player = new Player(1, "Player1", new Transform(new Vector2(0, 0), 0, [1, 1]));
 
   async initWebGPU() {
     if (!navigator.gpu) {
@@ -623,6 +698,21 @@ export class GameComponent {
       tileMapData[i * kPositionOffset + 1] = y; // y position
     }
 
+    //textures
+    const tileMaptextures = await this.loadTilemapTextures();
+
+    //temp
+    const grassTexture = tileMaptextures[0];
+
+    const sampler = device.createSampler({
+      label: 'sampler for object',
+      addressModeU: 'clamp-to-edge',
+      addressModeV: 'clamp-to-edge',
+      magFilter: 'nearest',
+      minFilter: 'nearest',
+      mipmapFilter: 'nearest',
+    });
+
     this.tileMapValues = tileMapData;
     const tilemapBindGroupLayout = this.tileMapPipeline.getBindGroupLayout(0);
     const tileMapBindGroup = device.createBindGroup({
@@ -631,6 +721,8 @@ export class GameComponent {
       entries: [
         { binding: 0, resource: { buffer: this.tileMapBuffer } },
         { binding: 1, resource: { buffer: tileMapUniformBuffer } },
+        { binding: 2, resource: sampler },
+        { binding: 3, resource: grassTexture.createView() },
       ],
     });
 
@@ -640,15 +732,45 @@ export class GameComponent {
     this.tileMapColor.set([0.0, 1.0, 0.0, 1.0]); // white color for tilemap
   }
 
-  render(timestamp?: DOMHighResTimeStamp) {
+  setupInput() {
+    document.addEventListener("keydown", this.keyDownHandler.bind(this), false);
+    document.addEventListener("keyup", this.keyUpHandler.bind(this), false);
+  }
+
+  keyDownHandler(event: KeyboardEvent) {
+    Input.SetKey(event.key, true);
+  }
+
+  keyUpHandler(event: KeyboardEvent) {
+    Input.SetKey(event.key, false);
+  }
+
+  updatePlayer() {
+    const speed = 5;
+    
+    Input.GetKeyDown(Input.Key.W) && (this.player.transform.position.y += speed * this.deltaTime);
+    Input.GetKeyDown(Input.Key.S) && (this.player.transform.position.y -= speed * this.deltaTime);
+    Input.GetKeyDown(Input.Key.A) && (this.player.transform.position.x -= speed * this.deltaTime);
+    Input.GetKeyDown(Input.Key.D) && (this.player.transform.position.x += speed * this.deltaTime);
+  }
+
+  update(timestamp?: DOMHighResTimeStamp) {
     if (this.lastTimestamp === null) {
       this.lastTimestamp = timestamp || performance.now();
     }
 
-    this.deltaTime = (timestamp || performance.now()) - this.lastTimestamp;
+    // Update input state for the current frame
+    Input.frameKeyMap.clear();
+
+    const time = timestamp || performance.now();
+    this.deltaTime = (time - this.lastTimestamp) / 1000; // convert to seconds
     this.elapsedTime += this.deltaTime;
     this.lastTimestamp = timestamp || performance.now();
 
+    this.updatePlayer();
+  }
+
+  render() {
     if (!this.context || !this.device || !this.renderPipeline || !this.vertexBuffer
       || !this.renderPassDescriptor || !this.uniformBuffer
       || !this.bindGroup || !this.uniformValues) {
@@ -696,8 +818,9 @@ export class GameComponent {
     const scale = this.baseScale; // scale to fit the tile size
     const matrix = Matrix3x3.identity();
 
-    matrix.translate([-0.0, 0]);
+    //update player transform (temp)
     matrix.scale([scale, scale * aspectRatio]);
+    matrix.translate([this.player.transform.position.x, this.player.transform.position.y]);
 
     this.matrixValue.set(matrix);
 
@@ -714,11 +837,16 @@ export class GameComponent {
 
     const commandBuffer = encoder.finish();
     device.queue.submit([commandBuffer]);
-    requestAnimationFrame(this.render.bind(this));
+  }
+
+  runGameLoop(timestamp?: DOMHighResTimeStamp) {
+    this.update(timestamp);
+    this.render();
+    requestAnimationFrame(this.runGameLoop.bind(this));
   }
 
   async loadDoroTexture(): Promise<GPUTexture> {
-    const url = '/resources/images/doro.png';
+    const url = '/resources/images/textures/doro/doro.png';
     const source = await loadImageBitmap(url);
     const texture = this.device?.createTexture({
       label: url,
@@ -740,5 +868,38 @@ export class GameComponent {
     );
 
     return texture;
+  }
+
+  async loadTilemapTextures(): Promise<GPUTexture[]> {
+    const urls = [
+      '/resources/images/textures/tiles/grass_x64.png'
+    ];
+
+    const textures: GPUTexture[] = [];
+    for (const url of urls) {
+      const source = await loadImageBitmap(url);
+      const texture = this.device?.createTexture({
+        label: url,
+        format: 'rgba8unorm',
+        size: [source.width, source.height],
+        usage: GPUTextureUsage.TEXTURE_BINDING |
+          GPUTextureUsage.COPY_DST |
+          GPUTextureUsage.RENDER_ATTACHMENT,
+      });
+
+      if (!texture) {
+        throw new Error(`Failed to create texture for ${url}.`);
+      }
+
+      this.device?.queue.copyExternalImageToTexture(
+        { source, flipY: true },
+        { texture },
+        { width: source.width, height: source.height },
+      );
+
+      textures.push(texture);
+    }
+
+    return textures;
   }
 }
