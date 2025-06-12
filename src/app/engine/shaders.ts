@@ -7,7 +7,8 @@
     struct Uniforms {
       color: vec4f,
       matrix: mat3x3f,
-      uvOffset: f32
+      sprite_uv_size_x: f32,
+      sprite_uv_offset_x: f32
     }
 
     @group(0) @binding(0) var<uniform> uniforms: Uniforms;
@@ -30,7 +31,8 @@
     fn fragment_main(fragData: VertexOut) -> @location(0) vec4f
     {
       var uv = fragData.uv;
-      uv.x *= uniforms.uvOffset;
+      uv.x *= uniforms.sprite_uv_size_x;
+      uv.x = uv.x + uniforms.sprite_uv_offset_x;
 
       return textureSample(texture, sampler2d, uv) * uniforms.color;
     }

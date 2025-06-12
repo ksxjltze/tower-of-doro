@@ -45,6 +45,7 @@ export class GameComponent {
     
     sprite.frameCount = 2;
     sprite.animated = true;
+    sprite.framesPerSecond = 5;
   }
 
   setupInput() {

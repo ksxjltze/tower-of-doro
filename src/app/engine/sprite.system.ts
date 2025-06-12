@@ -20,7 +20,7 @@ class SpriteSystem extends GameSystem{
                 continue;
 
             sprite.elapsedTime += Time.deltaTime;
-            sprite.frameIndex = (sprite.elapsedTime / sprite.framesPerSecond) % sprite.frameCount;
+            sprite.frameIndex = (sprite.elapsedTime / (1 / sprite.framesPerSecond)) % sprite.frameCount;
             
             if (sprite.frameIndex >= sprite.frameCount)
                 sprite.elapsedTime = 0;

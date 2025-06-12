@@ -14,8 +14,19 @@ class GameObject {
     };
 
     AddBehaviour(type: BehaviourType): GameBehaviour | null {
-        return GameSystem.AddBehaviour(type, this);
+        const behaviour = GameSystem.AddBehaviour(type, this);
+        if (!behaviour)
+            return null;
+
+        this.behaviours.push(behaviour);
+        return behaviour;
     };
+
+    GetBehaviour<T extends GameBehaviour>(type: BehaviourType): T | undefined {
+        return this.behaviours.find((behaviour) => {
+            return behaviour.type == type;
+        }) as T;
+    }
 }
 
 export { GameObject };

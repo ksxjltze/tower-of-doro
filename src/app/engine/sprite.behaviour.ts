@@ -10,7 +10,7 @@ class SpriteBehaviour extends GameBehaviour {
     framesPerSecond: number = 1;
     elapsedTime: number = 0;
 
-    static override type: BehaviourType = BehaviourType.Sprite;
+    override type: BehaviourType = BehaviourType.Sprite;
     constructor(gameObject: GameObject) {
         super(gameObject);
     }

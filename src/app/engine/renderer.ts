@@ -7,6 +7,8 @@ import { Transform } from '../engine/transform';
 import { Vector2 } from '../engine/vector';
 import { shaders, tilemapShader } from '../engine/shaders';
 import { GameObject } from './game.object';
+import { SpriteBehaviour } from './sprite.behaviour';
+import { BehaviourType } from './game.behaviour';
 
 async function loadImageBitmap(url: URL | string): Promise<ImageBitmap> {
   const res = await fetch(url);
@@ -41,9 +43,10 @@ class Renderer {
   tileMapColor: Float32Array = new Float32Array(4); // RGBA color for tilemap
 
   // Uniform values
-  matrixValue: Float32Array = new Float32Array();
-  colorValue: Float32Array = new Float32Array();
-  uvOffsetValue: Float32Array = new Float32Array();
+  uniform_Matrix: Float32Array = new Float32Array();
+  uniform_Color: Float32Array = new Float32Array();
+  uniform_Sprite_UV_Size_X: Float32Array = new Float32Array();
+  uniform_Sprite_UV_Offset_X: Float32Array = new Float32Array();
 
   //camera?
   baseScale = 2.0 / kTileSize;
@@ -195,12 +198,13 @@ class Renderer {
     const colorUniformSize = 16;
     const matrixUniformSize = 48;
     const uvOffsetUniformSize = 16;
+    const uvSizeUniformSize = 16;
     const floatByteSize = 4;
 
     const colorUniformFloatCount = (colorUniformSize / floatByteSize);
     const matrixUniformFloatCount = (matrixUniformSize / floatByteSize);
 
-    const uniformBufferSize = colorUniformSize + matrixUniformSize + uvOffsetUniformSize;
+    const uniformBufferSize = colorUniformSize + matrixUniformSize + uvOffsetUniformSize + uvSizeUniformSize;
     const uniformBuffer = device.createBuffer({
       label: 'uniforms',
       size: uniformBufferSize,
@@ -212,18 +216,21 @@ class Renderer {
 
     const kColorOffset = 0;
     const kMatrixOffset = kColorOffset + colorUniformFloatCount;
-    const kTextureIndexOffset = kMatrixOffset + matrixUniformFloatCount;
+    const kUVSizeXOffset = kMatrixOffset + matrixUniformFloatCount;
+    const kUVOffsetXOffset = kUVSizeXOffset + 1;
 
     const colorValue = uniformFloatView.subarray(kColorOffset, kColorOffset + colorUniformFloatCount);
     const matrixValue = uniformFloatView.subarray(kMatrixOffset, kMatrixOffset + matrixUniformFloatCount);
-    const uvOffsetValue = uniformFloatView.subarray(kTextureIndexOffset, kTextureIndexOffset + 1);
+    const uvSizeXValue = uniformFloatView.subarray(kUVSizeXOffset, kUVSizeXOffset + 1);
+    const uvOffsetXValue = uniformFloatView.subarray(kUVOffsetXOffset, kUVOffsetXOffset + 1);
 
-    this.colorValue = colorValue;
-    this.matrixValue = matrixValue;
-    this.uvOffsetValue = uvOffsetValue;
+    this.uniform_Color = colorValue;
+    this.uniform_Matrix = matrixValue;
+    this.uniform_Sprite_UV_Size_X = uvSizeXValue;
+    this.uniform_Sprite_UV_Offset_X = uvOffsetXValue;
 
     // colorValue.set([Math.random(), Math.random(), Math.random(), 1]);
-    this.colorValue.set([1.0, 1.0, 1.0, 1.0]); // white color
+    this.uniform_Color.set([1.0, 1.0, 1.0, 1.0]); // white color
 
     const doroIdleTexture = await this.loadDoroTexture();
     const doroRunTexture = await this.loadDoroRunSpriteSheet();
@@ -406,8 +413,14 @@ class Renderer {
     objects.forEach(gameObject => {
       matrix.scale([scale, scale * aspectRatio]);
       matrix.translate([gameObject.transform.position.x, gameObject.transform.position.y]);
-      this.matrixValue.set(matrix);
-      this.uvOffsetValue.set([0.5]);
+      this.uniform_Matrix.set(matrix);
+
+      //temp
+      const sprite = gameObject.GetBehaviour<SpriteBehaviour>(BehaviourType.Sprite);
+      if (sprite) {
+        this.uniform_Sprite_UV_Size_X.set([1 / sprite.frameCount]);
+        this.uniform_Sprite_UV_Offset_X.set([Math.floor(sprite.frameIndex) / sprite.frameCount]);
+      }
 
       // upload the uniform values to the uniform buffer
       device.queue.writeBuffer(uniformBuffer, 0, uniformValues);

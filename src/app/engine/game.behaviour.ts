@@ -6,7 +6,7 @@ enum BehaviourType {
 }
 
 abstract class GameBehaviour {
-    static readonly type: BehaviourType = BehaviourType.None;
+    type: BehaviourType = BehaviourType.None;
     gameObject: GameObject;
 
     constructor(gameObject: GameObject) {
