@@ -6,7 +6,7 @@ import { kTileSize, kTilemapWidth, kTilemapHeight } from '../engine/tile';
 import { Transform } from '../engine/transform';
 import { Vector2 } from '../engine/vector';
 import { shaders, tilemapShader } from '../engine/shaders';
-import { GameObject } from '../engine/gameobject';
+import { GameObject } from './game.object';
 
 async function loadImageBitmap(url: URL | string): Promise<ImageBitmap> {
   const res = await fetch(url);
@@ -15,6 +15,8 @@ async function loadImageBitmap(url: URL | string): Promise<ImageBitmap> {
 }
 
 class Renderer {
+  static instance: Renderer;
+
   //WebGPU stuff
   context: GPUCanvasContext | null = null;
   device?: GPUDevice = undefined;
@@ -25,6 +27,7 @@ class Renderer {
   uniformBuffer?: GPUBuffer = undefined;
   uniformValues?: ArrayBuffer | GPUAllowSharedBufferSource = undefined;
   bindGroup?: GPUBindGroup = undefined;
+  sampler?: GPUSampler;
 
   //tilemap
   tileMapBuffer?: GPUBuffer = undefined;
@@ -49,6 +52,8 @@ class Renderer {
     if (!navigator.gpu) {
       throw Error("WebGPU not supported.");
     }
+
+    Renderer.instance = this; //laziness
 
     const adapter = await navigator.gpu.requestAdapter();
     if (!adapter) {
@@ -245,6 +250,7 @@ class Renderer {
     this.uniformBuffer = uniformBuffer;
     this.uniformValues = uniformValues;
     this.bindGroup = bindGroup;
+    this.sampler =  sampler;
   }
 
   async createTileMapPipeline(tileMapShader: GPUShaderModule, vertexBuffers: GPUVertexBufferLayout[]) {
@@ -419,13 +425,31 @@ class Renderer {
     device.queue.submit([commandBuffer]);
   }
 
+  //temp
+  setTexture(texture: GPUTexture) {
+    if (!this.device || ! this.renderPipeline || !this.sampler || !this.uniformBuffer)
+      return;
+
+    const bindGroup = this.device.createBindGroup({
+      label: 'bind group for object',
+      layout: this.renderPipeline.getBindGroupLayout(0),
+      entries: [
+        { binding: 0, resource: { buffer: this.uniformBuffer } },
+        { binding: 1, resource: this.sampler },
+        { binding: 2, resource: texture.createView() },
+      ],
+    });
+
+    this.bindGroup = bindGroup;
+  }
+
   async loadDoroRunSpriteSheet(): Promise<GPUTexture> {
     const url = '/resources/images/textures/doro/sprites/run/doro-run.png';
+    return await this.loadTexture(url);
+  }
+
+  async loadTexture(url: string): Promise<GPUTexture> {
     const source = await loadImageBitmap(url);
-
-    if (!source)
-      throw new Error("Failed to load texture");
-
     const texture = this.device?.createTexture({
       label: url,
       format: 'rgba8unorm',
@@ -450,27 +474,7 @@ class Renderer {
 
   async loadDoroTexture(): Promise<GPUTexture> {
     const url = '/resources/images/textures/doro/sprites/idle/doro.png';
-    const source = await loadImageBitmap(url);
-    const texture = this.device?.createTexture({
-      label: url,
-      format: 'rgba8unorm',
-      size: [source.width, source.height],
-      usage: GPUTextureUsage.TEXTURE_BINDING |
-        GPUTextureUsage.COPY_DST |
-        GPUTextureUsage.RENDER_ATTACHMENT,
-    });
-
-    if (!texture) {
-      throw new Error("Failed to create texture.");
-    }
-
-    this.device?.queue.copyExternalImageToTexture(
-      { source, flipY: true },
-      { texture },
-      { width: source.width, height: source.height },
-    );
-
-    return texture;
+    return await this.loadTexture(url);
   }
 
   async loadTilemapTextures(): Promise<GPUTexture[]> {

@@ -3,15 +3,11 @@ import { Transform } from '../engine/transform';
 import { Vector2 } from '../engine/vector';
 import { Input } from '../engine/input';
 import { Renderer } from '../engine/renderer';
-import { GameObject } from '../engine/gameobject';
-
-class Player {
-  constructor(
-    public id: number,
-    public name: string,
-    public transform: Transform = new Transform(),
-  ) { }
-}
+import { GameObject } from '../engine/game.object';
+import { Time } from '../engine/time';
+import { SpriteSystem } from '../engine/sprite.system';
+import { BehaviourType } from '../engine/game.behaviour';
+import { SpriteBehaviour } from '../engine/sprite.behaviour';
 
 @Component({
   selector: 'app-game',
@@ -20,24 +16,35 @@ class Player {
   styleUrl: './game.component.css'
 })
 export class GameComponent {
-  player: Player = new Player(1, "Player1", new Transform());
+  player: GameObject = new GameObject("Player");
 
-  deltaTime = 0;
   elapsedTime = 0;
   lastTimestamp: DOMHighResTimeStamp | null = null;
 
   renderer: Renderer = new Renderer();
+  spriteSystem: SpriteSystem = new SpriteSystem();
 
   ngOnInit() {
     console.log("GameComponent initialized");
 
     this.renderer.initWebGPU()
-      .then(() => requestAnimationFrame(this.runGameLoop.bind(this)))
+      .then(() => {
+        this.setupPlayer()
+        .then(() => requestAnimationFrame(this.runGameLoop.bind(this)));
+      })
       .catch((error: any) => {
         console.error("Error initializing WebGPU:", error);
       });
 
     this.setupInput();
+  }
+
+  async setupPlayer() {
+    const sprite = this.player.AddBehaviour(BehaviourType.Sprite) as SpriteBehaviour;
+    await this.spriteSystem.loadTextureIntoSprite(sprite, '/resources/images/textures/doro/sprites/run/doro-run.png');
+    
+    sprite.frameCount = 2;
+    sprite.animated = true;
   }
 
   setupInput() {
@@ -55,7 +62,7 @@ export class GameComponent {
 
   updatePlayer() {
     const speed = 3;
-    const moveAmount = speed * this.deltaTime;
+    const moveAmount = speed * Time.deltaTime;
 
     Input.GetKey(Input.Key.W) && (this.player.transform.position.y += moveAmount);
     Input.GetKey(Input.Key.S) && (this.player.transform.position.y -= moveAmount);
@@ -68,14 +75,17 @@ export class GameComponent {
       this.lastTimestamp = timestamp || performance.now();
     }
 
+    const time = timestamp || performance.now();
+    Time.deltaTime = (time - this.lastTimestamp) / 1000; // convert to seconds
+    this.elapsedTime += Time.deltaTime;
+    this.lastTimestamp = timestamp || performance.now();
+
+    //TODO: frame management
+
     // Update input state for the current frame
     Input.frameKeyMap.clear();
     this.updatePlayer();
-    
-    const time = timestamp || performance.now();
-    this.deltaTime = (time - this.lastTimestamp) / 1000; // convert to seconds
-    this.elapsedTime += this.deltaTime;
-    this.lastTimestamp = timestamp || performance.now();
+    this.spriteSystem.update();
   }
 
   runGameLoop(timestamp?: DOMHighResTimeStamp) {
