@@ -49,8 +49,8 @@ class TileDescriptor {
 }
 
 const kTileSize = 16; // 16x16 pixels
-const kTilemapWidth = 100; // 100 tiles wide
-const kTilemapHeight = 100; // 100 tiles high
+const kTilemapWidth = 16;
+const kTilemapHeight = 8;
 const kTileDescriptors: TileDescriptor[] = [
   new TileDescriptor(0, TileType.Empty, 0, TileFlags.None),
   new TileDescriptor(1, TileType.Solid, 1, TileFlags.Collidable),

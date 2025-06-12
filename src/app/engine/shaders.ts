@@ -46,7 +46,8 @@
     }
 
     struct Tile {
-      position: vec2f
+      position: vec2f,
+      texture_offset: vec2f
     }
 
     struct Uniforms {
@@ -71,7 +72,7 @@
       let clipSpace = (uniforms.matrix * vec3f(position.xy + tile.position, 1.0)).xy;
 
       output.position = vec4f(clipSpace, 0.0, 1.0);
-      output.uv = uv;
+      output.uv = (uv * 0.5) + tile.texture_offset;
       output.color = uniforms.color;
 
       return output;

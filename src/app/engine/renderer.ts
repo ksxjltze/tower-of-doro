@@ -305,30 +305,35 @@ class Renderer {
     this.tileMapColor = tileMapColorValue;
     this.tileMapMatrixValue = tileMapMatrixValue;
 
-    const tileMapBufferLength = kTilemapWidth * kTilemapHeight * 4;
+    const tileByteSize = 4;
+    const tileMapBufferLength = kTilemapWidth * kTilemapHeight * tileByteSize;
     const tileMapBufferSize = tileMapBufferLength * Float32Array.BYTES_PER_ELEMENT;
     this.tileMapBuffer = device.createBuffer({
       label: 'tilemap buffer',
-      size: tileMapBufferSize, // position (2 floats)
+      size: tileMapBufferSize,
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
     });
 
-    const kPositionOffset = 2 * Float32Array.BYTES_PER_ELEMENT; // 2 floats (x, y) per tile
-    const tileMapData = new Float32Array(tileMapBufferLength); // 2 floats per tile (x, y)
+    const offset = tileByteSize;
+    const data = new ArrayBuffer(tileMapBufferSize);
+    const tileMapData = new Float32Array(data);
+
     for (let i = 0; i < kTilemapWidth * kTilemapHeight; i++) {
       // Set position based on tile index
       const x = (i % kTilemapWidth);
       const y = Math.floor(i / kTilemapWidth);
 
-      tileMapData[i * kPositionOffset] = x; // x position
-      tileMapData[i * kPositionOffset + 1] = y; // y position
+      tileMapData[i * offset] = x; // x position
+      tileMapData[i * offset + 1] = y; // y position
+      tileMapData[i * offset + 2] = 0.5000001; //texture offset
+      tileMapData[i * offset + 3] = 0;
     }
 
     //textures
     const tileMaptextures = await this.loadTilemapTextures();
 
     //temp
-    const grassTexture = tileMaptextures[0];
+    const tileMapTexture = tileMaptextures[0];
 
     const sampler = device.createSampler({
       label: 'sampler for object',
@@ -348,14 +353,14 @@ class Renderer {
         { binding: 0, resource: { buffer: this.tileMapBuffer } },
         { binding: 1, resource: { buffer: tileMapUniformBuffer } },
         { binding: 2, resource: sampler },
-        { binding: 3, resource: grassTexture.createView() },
+        { binding: 3, resource: tileMapTexture.createView() },
       ],
     });
 
     this.tileMapBindGroup = tileMapBindGroup;
     this.tileMapUniformsBuffer = tileMapUniformBuffer;
     this.tileMapUniformValues = tileMapUniformValues;
-    this.tileMapColor.set([0.0, 1.0, 0.0, 1.0]); // white color for tilemap
+    this.tileMapColor.set([1.0, 1.0, 1.0, 1.0]);
   }
 
   render(objects: GameObject[]) {
@@ -390,6 +395,7 @@ class Renderer {
 
       matrix.translate([-1, -1]); //center the tilemap
       matrix.scale([scale, scale * aspectRatio]);
+      matrix.translate([0.5, 0.5]);
 
       this.tileMapMatrixValue.set(matrix);
       device.queue.writeBuffer(this.tileMapUniformsBuffer, 0, this.tileMapUniformValues);
@@ -509,7 +515,7 @@ class Renderer {
 
   async loadTilemapTextures(): Promise<GPUTexture[]> {
     const urls = [
-      '/resources/images/textures/tiles/grass_x64.png'
+      '/resources/images/textures/tiles/tilesheet.png'
     ];
 
     const textures: GPUTexture[] = [];
