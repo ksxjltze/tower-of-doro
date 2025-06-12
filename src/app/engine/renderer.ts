@@ -15,7 +15,7 @@ async function loadImageBitmap(url: URL | string): Promise<ImageBitmap> {
 }
 
 class Renderer {
-//WebGPU stuff
+  //WebGPU stuff
   context: GPUCanvasContext | null = null;
   device?: GPUDevice = undefined;
   vertexBuffer?: GPUBuffer = undefined;
@@ -23,14 +23,14 @@ class Renderer {
 
   renderPassDescriptor?: GPURenderPassDescriptor = undefined;
   uniformBuffer?: GPUBuffer = undefined;
-  uniformValues?: Float32Array | GPUAllowSharedBufferSource = undefined;
+  uniformValues?: ArrayBuffer | GPUAllowSharedBufferSource = undefined;
   bindGroup?: GPUBindGroup = undefined;
 
   //tilemap
   tileMapBuffer?: GPUBuffer = undefined;
   tileMapPipeline?: GPURenderPipeline = undefined;
   tileMapBindGroup?: GPUBindGroup = undefined;
-  tileMapValues?: Float32Array | GPUAllowSharedBufferSource  = undefined;
+  tileMapValues?: Float32Array | GPUAllowSharedBufferSource = undefined;
   tileMapUniformsBuffer?: GPUBuffer = undefined;
   tileMapUniformValues?: Float32Array | GPUAllowSharedBufferSource = undefined;
 
@@ -40,6 +40,7 @@ class Renderer {
   // Uniform values
   matrixValue: Float32Array = new Float32Array();
   colorValue: Float32Array = new Float32Array();
+  uvOffsetValue: Float32Array = new Float32Array();
 
   //camera?
   baseScale = 2.0 / kTileSize;
@@ -184,28 +185,43 @@ class Renderer {
     };
 
     this.renderPipeline = device.createRenderPipeline(pipelineDescriptor);
-    const uniformBufferSize = (4 + 12) * 4;
+
+    //size in bytes
+    const colorUniformSize = 16;
+    const matrixUniformSize = 48;
+    const uvOffsetUniformSize = 16;
+    const floatByteSize = 4;
+
+    const colorUniformFloatCount = (colorUniformSize / floatByteSize);
+    const matrixUniformFloatCount = (matrixUniformSize / floatByteSize);
+
+    const uniformBufferSize = colorUniformSize + matrixUniformSize + uvOffsetUniformSize;
     const uniformBuffer = device.createBuffer({
       label: 'uniforms',
       size: uniformBufferSize,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
-    const uniformValues = new Float32Array(uniformBufferSize / 4);
 
-    // offsets to the various uniform values in float32 indices
+    const uniformValues = new ArrayBuffer(uniformBufferSize);
+    const uniformFloatView = new Float32Array(uniformValues);
+
     const kColorOffset = 0;
-    const kMatrixOffset = 4;
+    const kMatrixOffset = kColorOffset + colorUniformFloatCount;
+    const kTextureIndexOffset = kMatrixOffset + matrixUniformFloatCount;
 
-    const colorValue = uniformValues.subarray(kColorOffset, kColorOffset + 4);
-    const matrixValue = uniformValues.subarray(kMatrixOffset, kMatrixOffset + 12);
+    const colorValue = uniformFloatView.subarray(kColorOffset, kColorOffset + colorUniformFloatCount);
+    const matrixValue = uniformFloatView.subarray(kMatrixOffset, kMatrixOffset + matrixUniformFloatCount);
+    const uvOffsetValue = uniformFloatView.subarray(kTextureIndexOffset, kTextureIndexOffset + 1);
 
     this.colorValue = colorValue;
     this.matrixValue = matrixValue;
+    this.uvOffsetValue = uvOffsetValue;
 
     // colorValue.set([Math.random(), Math.random(), Math.random(), 1]);
     this.colorValue.set([1.0, 1.0, 1.0, 1.0]); // white color
 
-    const texture = await this.loadDoroTexture();
+    const doroIdleTexture = await this.loadDoroTexture();
+    const doroRunTexture = await this.loadDoroRunSpriteSheet();
 
     const sampler = device.createSampler({
       label: 'sampler for object',
@@ -222,7 +238,7 @@ class Renderer {
       entries: [
         { binding: 0, resource: { buffer: uniformBuffer } },
         { binding: 1, resource: sampler },
-        { binding: 2, resource: texture.createView() },
+        { binding: 2, resource: doroRunTexture.createView() },
       ],
     });
 
@@ -275,7 +291,7 @@ class Renderer {
 
     this.tileMapColor = tileMapColorValue;
     this.tileMapMatrixValue = tileMapMatrixValue;
-    
+
     const tileMapBufferLength = kTilemapWidth * kTilemapHeight * 4;
     const tileMapBufferSize = tileMapBufferLength * Float32Array.BYTES_PER_ELEMENT;
     this.tileMapBuffer = device.createBuffer({
@@ -356,13 +372,13 @@ class Renderer {
       // upload the uniform values to the uniform buffer
       device.queue.writeBuffer(this.tileMapBuffer, 0, this.tileMapValues);
 
-    const scale = this.baseScale; // scale to fit the tile size
-    const matrix = Matrix3x3.identity();
+      const scale = this.baseScale; // scale to fit the tile size
+      const matrix = Matrix3x3.identity();
 
-    matrix.translate([-1, -1]); //center the tilemap
-    matrix.scale([scale, scale * aspectRatio]);
+      matrix.translate([-1, -1]); //center the tilemap
+      matrix.scale([scale, scale * aspectRatio]);
 
-    this.tileMapMatrixValue.set(matrix);
+      this.tileMapMatrixValue.set(matrix);
       device.queue.writeBuffer(this.tileMapUniformsBuffer, 0, this.tileMapUniformValues);
 
       pass.setPipeline(this.tileMapPipeline);
@@ -382,28 +398,58 @@ class Renderer {
     const uniformValues = this.uniformValues;
 
     objects.forEach(gameObject => {
-        matrix.scale([scale, scale * aspectRatio]);
-        matrix.translate([gameObject.transform.position.x, gameObject.transform.position.y]);
-        this.matrixValue.set(matrix);
+      matrix.scale([scale, scale * aspectRatio]);
+      matrix.translate([gameObject.transform.position.x, gameObject.transform.position.y]);
+      this.matrixValue.set(matrix);
+      this.uvOffsetValue.set([0.5]);
 
-        // upload the uniform values to the uniform buffer
-        device.queue.writeBuffer(uniformBuffer, 0, uniformValues);
+      // upload the uniform values to the uniform buffer
+      device.queue.writeBuffer(uniformBuffer, 0, uniformValues);
 
-        pass.setPipeline(renderPipeline);
-        pass.setBindGroup(0, this.bindGroup);
-        pass.setVertexBuffer(0, this.vertexBuffer);
-        pass.setBindGroup(0, this.bindGroup);
+      pass.setPipeline(renderPipeline);
+      pass.setBindGroup(0, this.bindGroup);
+      pass.setVertexBuffer(0, this.vertexBuffer);
+      pass.setBindGroup(0, this.bindGroup);
 
-        pass.draw(6);
-        pass.end();
+      pass.draw(6);
+      pass.end();
     });
 
     const commandBuffer = encoder.finish();
     device.queue.submit([commandBuffer]);
   }
 
+  async loadDoroRunSpriteSheet(): Promise<GPUTexture> {
+    const url = '/resources/images/textures/doro/sprites/run/doro-run.png';
+    const source = await loadImageBitmap(url);
+
+    if (!source)
+      throw new Error("Failed to load texture");
+
+    const texture = this.device?.createTexture({
+      label: url,
+      format: 'rgba8unorm',
+      size: [source.width, source.height],
+      usage: GPUTextureUsage.TEXTURE_BINDING |
+        GPUTextureUsage.COPY_DST |
+        GPUTextureUsage.RENDER_ATTACHMENT,
+    });
+
+    if (!texture) {
+      throw new Error("Failed to create texture.");
+    }
+
+    this.device?.queue.copyExternalImageToTexture(
+      { source, flipY: true },
+      { texture },
+      { width: source.width, height: source.height },
+    );
+
+    return texture;
+  }
+
   async loadDoroTexture(): Promise<GPUTexture> {
-    const url = '/resources/images/textures/doro/doro.png';
+    const url = '/resources/images/textures/doro/sprites/idle/doro.png';
     const source = await loadImageBitmap(url);
     const texture = this.device?.createTexture({
       label: url,
@@ -461,4 +507,4 @@ class Renderer {
   }
 }
 
-export {Renderer};
+export { Renderer };

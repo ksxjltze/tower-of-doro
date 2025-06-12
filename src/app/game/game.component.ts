@@ -54,12 +54,13 @@ export class GameComponent {
   }
 
   updatePlayer() {
-    const speed = 5;
+    const speed = 3;
+    const moveAmount = speed * this.deltaTime;
 
-    Input.GetKey(Input.Key.W) && (this.player.transform.position.y += speed * this.deltaTime);
-    Input.GetKey(Input.Key.S) && (this.player.transform.position.y -= speed * this.deltaTime);
-    Input.GetKey(Input.Key.A) && (this.player.transform.position.x -= speed * this.deltaTime);
-    Input.GetKey(Input.Key.D) && (this.player.transform.position.x += speed * this.deltaTime);
+    Input.GetKey(Input.Key.W) && (this.player.transform.position.y += moveAmount);
+    Input.GetKey(Input.Key.S) && (this.player.transform.position.y -= moveAmount);
+    Input.GetKey(Input.Key.A) && (this.player.transform.position.x -= moveAmount);
+    Input.GetKey(Input.Key.D) && (this.player.transform.position.x += moveAmount);
   }
 
   update(timestamp?: DOMHighResTimeStamp) {
@@ -84,6 +85,7 @@ export class GameComponent {
 
     this.update(timestamp);
     this.renderer.render(objects);
+    
     requestAnimationFrame(this.runGameLoop.bind(this));
   }
 }
