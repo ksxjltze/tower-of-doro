@@ -118,6 +118,7 @@ export class GameComponent {
 
     const time = timestamp || performance.now();
     Time.deltaTime = (time - this.lastTimestamp) / 1000; // convert to seconds
+    
     this.elapsedTime += Time.deltaTime;
     this.lastTimestamp = timestamp || performance.now();
 
