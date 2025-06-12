@@ -10,6 +10,32 @@ class Vector2 {
     }
     return new Vector2(arr[0], arr[1]);
   }
+
+  Multiply(amount: number) {
+    this.x *= amount;
+    this.y *= amount;
+
+    return this;
+  }
+
+  Length() {
+    return Math.sqrt(this.x * this.x + this.y * this.y)
+  }
+
+  Normalize() {
+    const length = this.Length();
+    this.x /= length;
+    this.y /= length;
+
+    return this;
+  }
+
+  Add(other: Vector2) {
+    this.x += other.x;
+    this.y += other.y;
+
+    return this;
+  }
 }
 
 export {Vector2};

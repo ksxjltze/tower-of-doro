@@ -1,5 +1,7 @@
 class Texture {
-    handle: GPUTexture
+    handle: GPUTexture;
+    changed: boolean = false;
+    
     constructor (handle: GPUTexture) {
         this.handle = handle;
     }

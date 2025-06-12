@@ -1,3 +1,5 @@
+import { identity } from "rxjs";
+
 class Matrix3x3 extends Float32Array {
   constructor() {
     super(12);
@@ -164,6 +166,12 @@ class Matrix3x3 extends Float32Array {
 
     return this;
   };
+
+  reset() {
+    this[0] = 1;  this[1] = 0;  this[2] = 0;
+    this[4] = 0;  this[5] = 1;  this[6] = 0;
+    this[8] = 0;  this[9] = 0;  this[10] = 1;
+  }
 }
 
 export { Matrix3x3 };

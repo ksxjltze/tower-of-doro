@@ -7,7 +7,7 @@ enum BehaviourType {
 
 abstract class GameBehaviour {
     type: BehaviourType = BehaviourType.None;
-    gameObject: GameObject;
+    gameObject: GameObject | null;
 
     constructor(gameObject: GameObject) {
         this.gameObject = gameObject;

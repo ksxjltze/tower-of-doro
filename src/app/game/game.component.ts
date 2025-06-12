@@ -18,6 +18,9 @@ import { SpriteBehaviour } from '../engine/sprite.behaviour';
 export class GameComponent {
   player: GameObject = new GameObject("Player");
 
+  runSprite?: SpriteBehaviour;
+  idleSprite?: SpriteBehaviour;
+
   elapsedTime = 0;
   lastTimestamp: DOMHighResTimeStamp | null = null;
 
@@ -40,12 +43,20 @@ export class GameComponent {
   }
 
   async setupPlayer() {
-    const sprite = this.player.AddBehaviour(BehaviourType.Sprite) as SpriteBehaviour;
-    await this.spriteSystem.loadTextureIntoSprite(sprite, '/resources/images/textures/doro/sprites/run/doro-run.png');
+    const runSprite = this.player.AddBehaviour(BehaviourType.Sprite) as SpriteBehaviour;
+    const idleSprite = this.player.AddBehaviour(BehaviourType.Sprite) as SpriteBehaviour;
     
-    sprite.frameCount = 2;
-    sprite.animated = true;
-    sprite.framesPerSecond = 5;
+    await this.spriteSystem.loadTextureIntoSprite(runSprite, '/resources/images/textures/doro/sprites/run/doro-run.png');
+    await this.spriteSystem.loadTextureIntoSprite(idleSprite, '/resources/images/textures/doro/sprites/idle/doro.png');
+
+    runSprite.frameCount = 2;
+    runSprite.animated = true;
+    runSprite.framesPerSecond = 5;
+
+    idleSprite.animated = false;
+
+    this.runSprite = runSprite;
+    this.idleSprite = idleSprite;
   }
 
   setupInput() {
@@ -62,13 +73,42 @@ export class GameComponent {
   }
 
   updatePlayer() {
-    const speed = 3;
+    if (!this.runSprite || !this.idleSprite)
+      return;
+
+    const speed = 1;
     const moveAmount = speed * Time.deltaTime;
 
-    Input.GetKey(Input.Key.W) && (this.player.transform.position.y += moveAmount);
-    Input.GetKey(Input.Key.S) && (this.player.transform.position.y -= moveAmount);
-    Input.GetKey(Input.Key.A) && (this.player.transform.position.x -= moveAmount);
-    Input.GetKey(Input.Key.D) && (this.player.transform.position.x += moveAmount);
+    let moveX = 0;
+    let moveY = 0;
+
+    Input.GetKey(Input.Key.W) && (moveY++);
+    Input.GetKey(Input.Key.S) && (moveY--);
+    
+    if (Input.GetKey(Input.Key.A)) {
+      moveX--;
+      this.runSprite.flipX = false;      
+      this.idleSprite.flipX = false;
+    }
+    
+    if (Input.GetKey(Input.Key.D)) {
+      moveX++;
+      this.runSprite.flipX = true;
+      this.idleSprite.flipX = true;
+    }
+
+    const velocity = new Vector2(moveX, moveY);
+    if (velocity.Length() > 0) {
+      this.player.SetBehaviour(BehaviourType.Sprite, this.runSprite);
+      this.runSprite.texture!.changed = true;
+      velocity.Normalize();
+    }
+    else {
+      this.player.SetBehaviour(BehaviourType.Sprite, this.idleSprite);
+      this.idleSprite.texture!.changed = true;
+    }
+    
+    this.player.transform.position.Add(velocity.Multiply(moveAmount));
   }
 
   update(timestamp?: DOMHighResTimeStamp) {

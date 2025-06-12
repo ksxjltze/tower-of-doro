@@ -403,7 +403,7 @@ class Renderer {
     }
 
     //transform the model matrix
-    const scale = this.baseScale; // scale to fit the tile size
+    let scale = this.baseScale; // scale to fit the tile size
     const matrix = Matrix3x3.identity();
 
     const uniformBuffer = this.uniformBuffer;
@@ -411,16 +411,33 @@ class Renderer {
     const uniformValues = this.uniformValues;
 
     objects.forEach(gameObject => {
-      matrix.scale([scale, scale * aspectRatio]);
-      matrix.translate([gameObject.transform.position.x, gameObject.transform.position.y]);
-      this.uniform_Matrix.set(matrix);
-
       //temp
       const sprite = gameObject.GetBehaviour<SpriteBehaviour>(BehaviourType.Sprite);
       if (sprite) {
-        this.uniform_Sprite_UV_Size_X.set([1 / sprite.frameCount]);
-        this.uniform_Sprite_UV_Offset_X.set([Math.floor(sprite.frameIndex) / sprite.frameCount]);
+        if (sprite.texture?.changed) {
+          this.setTexture(sprite.texture?.handle!);
+          sprite.texture.changed = false;
+        }
+
+        if (sprite.animated) {
+          this.uniform_Sprite_UV_Size_X.set([1 / sprite.frameCount]);
+          this.uniform_Sprite_UV_Offset_X.set([Math.floor(sprite.frameIndex) / sprite.frameCount]);
+        }
+        else {
+          this.uniform_Sprite_UV_Size_X.set([1]);
+          this.uniform_Sprite_UV_Offset_X.set([0]);
+        }
+
+        matrix
+          .translate([gameObject.transform.position.x, gameObject.transform.position.y * aspectRatio])
+          .scale([sprite.flipX ? -scale : scale, scale * aspectRatio]);
       }
+      else {
+        matrix
+          .translate([gameObject.transform.position.x, gameObject.transform.position.y * aspectRatio])
+          .scale([scale, scale * aspectRatio]);
+      }
+      this.uniform_Matrix.set(matrix);
 
       // upload the uniform values to the uniform buffer
       device.queue.writeBuffer(uniformBuffer, 0, uniformValues);

@@ -9,6 +9,7 @@ class SpriteBehaviour extends GameBehaviour {
     animated: boolean = false;
     framesPerSecond: number = 1;
     elapsedTime: number = 0;
+    flipX: boolean = false;
 
     override type: BehaviourType = BehaviourType.Sprite;
     constructor(gameObject: GameObject) {
