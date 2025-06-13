@@ -1,6 +1,6 @@
 import { Vector2 } from './vector';
 
-class Transform {
+class Transform2D {
   constructor(
     public position: Vector2 = new Vector2(0, 0),
     public rotation: number = 0,
@@ -8,4 +8,4 @@ class Transform {
   ) { }
 }
 
-export { Transform };
+export { Transform2D };

@@ -114,7 +114,43 @@ class Matrix3x3 extends Float32Array {
     return Matrix3x3.multiply(m, Matrix3x3.scaling(scale));
   };
 
-  multiply(a: Float32Array, b: Float32Array) {
+  multiply(other: Float32Array) {
+    const a00 = other[0 * 4 + 0];
+    const a01 = other[0 * 4 + 1];
+    const a02 = other[0 * 4 + 2];
+    const a10 = other[1 * 4 + 0];
+    const a11 = other[1 * 4 + 1];
+    const a12 = other[1 * 4 + 2];
+    const a20 = other[2 * 4 + 0];
+    const a21 = other[2 * 4 + 1];
+    const a22 = other[2 * 4 + 2];
+    
+    const b00 = this[0 * 4 + 0];
+    const b01 = this[0 * 4 + 1];
+    const b02 = this[0 * 4 + 2];
+    const b10 = this[1 * 4 + 0];
+    const b11 = this[1 * 4 + 1];
+    const b12 = this[1 * 4 + 2];
+    const b20 = this[2 * 4 + 0];
+    const b21 = this[2 * 4 + 1];
+    const b22 = this[2 * 4 + 2];
+
+    this[ 0] = b00 * a00 + b01 * a10 + b02 * a20;
+    this[ 1] = b00 * a01 + b01 * a11 + b02 * a21;
+    this[ 2] = b00 * a02 + b01 * a12 + b02 * a22;
+
+    this[ 4] = b10 * a00 + b11 * a10 + b12 * a20;
+    this[ 5] = b10 * a01 + b11 * a11 + b12 * a21;
+    this[ 6] = b10 * a02 + b11 * a12 + b12 * a22;
+
+    this[ 8] = b20 * a00 + b21 * a10 + b22 * a20;
+    this[ 9] = b20 * a01 + b21 * a11 + b22 * a21;
+    this[10] = b20 * a02 + b21 * a12 + b22 * a22;
+
+    return this;
+  }
+
+  multiplyAB(a: Float32Array, b: Float32Array) {
     const a00 = a[0 * 4 + 0];
     const a01 = a[0 * 4 + 1];
     const a02 = a[0 * 4 + 2];
@@ -150,19 +186,19 @@ class Matrix3x3 extends Float32Array {
   };
 
   translate(translation: [number, number]) {
-    this.multiply(this, Matrix3x3.translation(translation));
+    this.multiplyAB(this, Matrix3x3.translation(translation));
     
     return this;
   };
 
   rotate(angleInRadians: number) {
-    this.multiply(this, Matrix3x3.rotation(angleInRadians));
+    this.multiplyAB(this, Matrix3x3.rotation(angleInRadians));
 
     return this;
   };
 
   scale(scale: [number, number]) {
-    this.multiply(this, Matrix3x3.scaling(scale));
+    this.multiplyAB(this, Matrix3x3.scaling(scale));
 
     return this;
   };
@@ -171,6 +207,8 @@ class Matrix3x3 extends Float32Array {
     this[0] = 1;  this[1] = 0;  this[2] = 0;
     this[4] = 0;  this[5] = 1;  this[6] = 0;
     this[8] = 0;  this[9] = 0;  this[10] = 1;
+
+    return this;
   }
 }
 

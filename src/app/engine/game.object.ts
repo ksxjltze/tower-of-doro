@@ -1,15 +1,15 @@
-import { Transform } from "./transform";
+import { Transform2D } from "./transform";
 import { BehaviourType, GameBehaviour } from "./game.behaviour";
 import { GameSystem } from "./game.system";
 
 class GameObject {
     name: string;
-    transform: Transform;
+    transform: Transform2D;
     behaviours: Map<BehaviourType, GameBehaviour>;
 
     constructor(name: string) {
         this.name = name;
-        this.transform = new Transform();
+        this.transform = new Transform2D();
         this.behaviours = new Map<BehaviourType, GameBehaviour>();
     };
 

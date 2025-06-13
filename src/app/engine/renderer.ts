@@ -3,12 +3,14 @@ import { Matrix3x3 } from '../engine/matrix';
 import { Input } from '../engine/input';
 import { TileDescriptor, TileType, TileFlags } from '../engine/tile';
 import { kTileSize, kTilemapWidth, kTilemapHeight } from '../engine/tile';
-import { Transform } from '../engine/transform';
+import { Transform2D } from '../engine/transform';
 import { Vector2 } from '../engine/vector';
 import { shaders, tilemapShader } from '../engine/shaders';
 import { GameObject } from './game.object';
 import { SpriteBehaviour } from './sprite.behaviour';
 import { BehaviourType } from './game.behaviour';
+import { GameComponent } from '../game/game.component';
+import { Camera2D } from './camera2d';
 
 async function loadImageBitmap(url: URL | string): Promise<ImageBitmap> {
   const res = await fetch(url);
@@ -57,7 +59,6 @@ class Renderer {
     }
 
     Renderer.instance = this; //laziness
-
     const adapter = await navigator.gpu.requestAdapter();
     if (!adapter) {
       throw Error("Couldn't request WebGPU adapter.");
@@ -80,6 +81,9 @@ class Renderer {
     if (!this.context) {
       throw Error("Couldn't get WebGPU context from canvas.");
     }
+
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
 
     this.context.configure({
       device: device,
@@ -148,11 +152,15 @@ class Renderer {
         const canvas = entry.target as HTMLCanvasElement;
         const width = entry.contentBoxSize[0].inlineSize;
         const height = entry.contentBoxSize[0].blockSize;
+
         canvas.width = Math.max(1, Math.min(width, this.device.limits.maxTextureDimension2D));
         canvas.height = Math.max(1, Math.min(height, this.device.limits.maxTextureDimension2D));
+
+        Camera2D.instance.aspectRatio = canvas.width / canvas.height;
       }
 
     });
+
     observer.observe(canvas);
   }
 
@@ -377,14 +385,13 @@ class Renderer {
     if (!renderPassDescriptor)
       throw new Error("Render pass descriptor is not defined.");
 
-    const aspectRatio = this.context.canvas.width / this.context.canvas.height;
-
     //@ts-ignore
     renderPassDescriptor.colorAttachments[0].view = this.context.getCurrentTexture().createView();
     const encoder = device.createCommandEncoder({
       label: 'render quad encoder',
     });
 
+    const viewMatrix = GameComponent.instance.camera.computeViewMatrix();
     const pass = encoder.beginRenderPass(renderPassDescriptor);
     if (this.tileMapPipeline && this.tileMapBindGroup && this.tileMapBuffer && this.tileMapValues && this.tileMapUniformValues && this.tileMapUniformsBuffer) {
       // upload the uniform values to the uniform buffer
@@ -393,9 +400,10 @@ class Renderer {
       const scale = this.baseScale; // scale to fit the tile size
       const matrix = Matrix3x3.identity();
 
-      matrix.translate([-1, -1]); //center the tilemap
-      matrix.scale([scale, scale * aspectRatio]);
+      matrix.translate([-1, -0.5]); //center the tilemap
+      matrix.scale([scale, scale]);
       matrix.translate([0.5, 0.5]);
+      matrix.multiply(viewMatrix);
 
       this.tileMapMatrixValue.set(matrix);
       device.queue.writeBuffer(this.tileMapUniformsBuffer, 0, this.tileMapUniformValues);
@@ -435,14 +443,16 @@ class Renderer {
         }
 
         matrix
-          .translate([gameObject.transform.position.x, gameObject.transform.position.y * aspectRatio])
-          .scale([sprite.flipX ? -scale : scale, scale * aspectRatio]);
+          .translate([gameObject.transform.position.x, gameObject.transform.position.y])
+          .scale([sprite.flipX ? -scale : scale, scale]);
       }
       else {
         matrix
-          .translate([gameObject.transform.position.x, gameObject.transform.position.y * aspectRatio])
-          .scale([scale, scale * aspectRatio]);
+          .translate([gameObject.transform.position.x, gameObject.transform.position.y])
+          .scale([scale, scale]);
       }
+
+      matrix.multiply(viewMatrix);
       this.uniform_Matrix.set(matrix);
 
       // upload the uniform values to the uniform buffer

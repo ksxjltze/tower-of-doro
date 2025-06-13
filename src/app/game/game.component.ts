@@ -1,5 +1,5 @@
 import { Component } from '@angular/core';
-import { Transform } from '../engine/transform';
+import { Transform2D } from '../engine/transform';
 import { Vector2 } from '../engine/vector';
 import { Input } from '../engine/input';
 import { Renderer } from '../engine/renderer';
@@ -8,6 +8,7 @@ import { Time } from '../engine/time';
 import { SpriteSystem } from '../engine/sprite.system';
 import { BehaviourType } from '../engine/game.behaviour';
 import { SpriteBehaviour } from '../engine/sprite.behaviour';
+import { Camera2D } from '../engine/camera2d';
 
 @Component({
   selector: 'app-game',
@@ -17,6 +18,9 @@ import { SpriteBehaviour } from '../engine/sprite.behaviour';
 })
 export class GameComponent {
   player: GameObject = new GameObject("Player");
+  camera: Camera2D = new Camera2D();
+
+  static instance: GameComponent;
 
   runSprite?: SpriteBehaviour;
   idleSprite?: SpriteBehaviour;
@@ -29,6 +33,7 @@ export class GameComponent {
 
   ngOnInit() {
     console.log("GameComponent initialized");
+    GameComponent.instance = this;
 
     this.renderer.initWebGPU()
       .then(() => {
