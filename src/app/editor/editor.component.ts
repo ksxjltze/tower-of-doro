@@ -1,12 +1,23 @@
 import { Component } from '@angular/core';
-import { GameComponent } from "../game/game.component";
+import { Runtime } from '../engine/runtime';
 
 @Component({
   selector: 'app-editor',
-  imports: [GameComponent],
+  imports: [],
   templateUrl: './editor.component.html',
   styleUrl: './editor.component.css'
 })
 export class EditorComponent {
+  runtime: Runtime;
 
+  constructor() {
+    this.runtime = new Runtime();
+  }
+
+  ngOnInit() {
+    console.log("GameComponent initialized");
+    this.runtime
+      .init()
+      .then();
+  }
 }

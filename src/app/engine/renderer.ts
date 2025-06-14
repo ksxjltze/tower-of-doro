@@ -391,7 +391,7 @@ class Renderer {
       label: 'render quad encoder',
     });
 
-    const viewMatrix = GameComponent.instance.camera.computeViewMatrix();
+    const viewMatrix = Camera2D.instance.computeViewMatrix();
     const pass = encoder.beginRenderPass(renderPassDescriptor);
     if (this.tileMapPipeline && this.tileMapBindGroup && this.tileMapBuffer && this.tileMapValues && this.tileMapUniformValues && this.tileMapUniformsBuffer) {
       // upload the uniform values to the uniform buffer

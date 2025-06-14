@@ -11,6 +11,12 @@ class Scene {
         this.objects = [];
         this.tileMap = [];
     }
+
+    AddObject(gameObject: GameObject) {
+        const length = this.objects.push(gameObject);
+
+        return this.objects[length - 1];
+    }
 }
 
 export { Scene };
