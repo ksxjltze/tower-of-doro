@@ -1,10 +1,20 @@
 import { Matrix3x3 } from "./matrix";
 import { Transform2D } from "./transform";
 
+enum ScalingMode {
+    Fixed,
+    ScreenSize
+}
+
 class Camera2D {
     transform: Transform2D;
     aspectRatio: number;
     matrix: Matrix3x3;
+
+    scalingMode: ScalingMode = ScalingMode.ScreenSize;
+
+    referenceResolution:[number, number] = [1920, 1080];
+    resolutionScale: [number, number] = [1, 1];
 
     static instance: Camera2D;
     constructor() {
@@ -26,7 +36,15 @@ class Camera2D {
             .rotate(rot)
             .scale(scale);
 
-        return matrix.scale([1, this.aspectRatio]);
+        return matrix
+            .scale(this.resolutionScale)
+    }
+
+    updateResolutionScale(width: number, height: number) {
+        this.resolutionScale = [
+            this.referenceResolution[0] / width, 
+            this.referenceResolution[0] / height
+        ];
     }
 }
 

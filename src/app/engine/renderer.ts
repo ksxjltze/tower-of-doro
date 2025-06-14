@@ -157,6 +157,7 @@ class Renderer {
         canvas.height = Math.max(1, Math.min(height, this.device.limits.maxTextureDimension2D));
 
         Camera2D.instance.aspectRatio = canvas.width / canvas.height;
+        Camera2D.instance.updateResolutionScale(canvas.width, canvas.height);
       }
 
     });
