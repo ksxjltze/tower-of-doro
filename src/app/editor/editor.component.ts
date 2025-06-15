@@ -15,9 +15,7 @@ export class EditorComponent {
   }
 
   ngOnInit() {
-    console.log("GameComponent initialized");
-    this.runtime
-      .init()
-      .then();
+    console.log("EditorComponent initialized");
+    this.runtime.init();
   }
 }

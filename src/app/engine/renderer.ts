@@ -465,9 +465,9 @@ class Renderer {
       pass.setBindGroup(0, this.bindGroup);
 
       pass.draw(6);
-      pass.end();
     });
 
+    pass.end();
     const commandBuffer = encoder.finish();
     device.queue.submit([commandBuffer]);
   }
