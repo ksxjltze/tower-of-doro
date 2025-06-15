@@ -1,4 +1,12 @@
 <section id="editor">
+    <div id="tile-map-panel">
+        <div class="grid">
+            @for (tileDescriptor of this.tileMap.descriptors; track $index) {
+                <img src="{{tileDescriptor.sprite.texture?.src}}"/>
+            }
+        </div>
+    </div>
+    <div id="inspector-panel"></div>
     <div class="scene-view">
         <canvas class="w-full h-full" id="gameCanvas"></canvas>
     </div>

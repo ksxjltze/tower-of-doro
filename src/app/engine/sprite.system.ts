@@ -2,7 +2,7 @@ import { BehaviourType, GameBehaviour } from "./game.behaviour";
 import { GameObject } from "./game.object";
 import { GameSystem } from "./game.system";
 import { Renderer } from "./renderer";
-import { SpriteBehaviour } from "./sprite.behaviour";
+import { Sprite, SpriteBehaviour } from "./sprite.behaviour";
 import { Texture } from "./texture";
 import { Time } from "./time";
 
@@ -15,18 +15,19 @@ class SpriteSystem extends GameSystem{
     }
 
     update() {
-        for (const sprite of this.behaviours) {
+        for (const behaviour of this.behaviours) {
+            const sprite = behaviour.sprite;
             if (!sprite.animated)
                 continue;
 
-            if (!sprite.gameObject)
+            if (!behaviour.gameObject)
                 continue;
 
-            sprite.elapsedTime += Time.deltaTime;
-            sprite.frameIndex = (sprite.elapsedTime / (1 / sprite.framesPerSecond)) % sprite.frameCount;
+            behaviour.elapsedTime += Time.deltaTime;
+            behaviour.frameIndex = (behaviour.elapsedTime / (1 / sprite.framesPerSecond)) % sprite.frameCount;
             
-            if (sprite.frameIndex >= sprite.frameCount)
-                sprite.elapsedTime = 0;
+            if (behaviour.frameIndex >= sprite.frameCount)
+                behaviour.elapsedTime = 0;
         }
     }
 
@@ -37,9 +38,9 @@ class SpriteSystem extends GameSystem{
         return behavior;
     }
 
-    async loadTextureIntoSprite(sprite: SpriteBehaviour, url: string) {
+    async loadTextureIntoSprite(sprite: Sprite, url: string) {
         const handle = await Renderer.instance.loadTexture(url);
-        sprite.texture = new Texture(handle);
+        sprite.texture = new Texture(handle, url);
     }
 }
 

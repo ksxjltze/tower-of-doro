@@ -9,7 +9,7 @@ abstract class GameBehaviour {
     type: BehaviourType = BehaviourType.None;
     gameObject: GameObject | null;
 
-    constructor(gameObject: GameObject) {
+    constructor(gameObject: GameObject | null) {
         this.gameObject = gameObject;
     }
 }

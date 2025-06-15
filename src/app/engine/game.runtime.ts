@@ -32,20 +32,20 @@ class GameRuntime extends Runtime {
     }
 
     async setupPlayer() {
-        const runSprite = this.player.AddBehaviour(BehaviourType.Sprite) as SpriteBehaviour;
-        const idleSprite = this.player.AddBehaviour(BehaviourType.Sprite) as SpriteBehaviour;
+        const runAnim = this.player.AddBehaviour(BehaviourType.Sprite) as SpriteBehaviour;
+        const idleAnim = this.player.AddBehaviour(BehaviourType.Sprite) as SpriteBehaviour;
 
-        await this.spriteSystem.loadTextureIntoSprite(runSprite, '/resources/images/textures/doro/sprites/run/doro-run.png');
-        await this.spriteSystem.loadTextureIntoSprite(idleSprite, '/resources/images/textures/doro/sprites/idle/doro.png');
+        await this.spriteSystem.loadTextureIntoSprite(runAnim.sprite, '/resources/images/textures/doro/sprites/run/doro-run.png');
+        await this.spriteSystem.loadTextureIntoSprite(idleAnim.sprite, '/resources/images/textures/doro/sprites/idle/doro.png');
 
-        runSprite.frameCount = 2;
-        runSprite.animated = true;
-        runSprite.framesPerSecond = 5;
+        runAnim.sprite.frameCount = 2;
+        runAnim.sprite.animated = true;
+        runAnim.sprite.framesPerSecond = 5;
 
-        idleSprite.animated = false;
+        idleAnim.sprite.animated = false;
 
-        this.runSprite = runSprite;
-        this.idleSprite = idleSprite;
+        this.runSprite = runAnim;
+        this.idleSprite = idleAnim;
     }
 
     setupInput() {
@@ -89,12 +89,12 @@ class GameRuntime extends Runtime {
         const velocity = new Vector2(moveX, moveY);
         if (velocity.Length() > 0) {
             this.player.SetBehaviour(BehaviourType.Sprite, this.runSprite);
-            this.runSprite.texture!.changed = true;
+            this.runSprite.sprite.texture!.changed = true;
             velocity.Normalize();
         }
         else {
             this.player.SetBehaviour(BehaviourType.Sprite, this.idleSprite);
-            this.idleSprite.texture!.changed = true;
+            this.idleSprite.sprite.texture!.changed = true;
         }
 
         this.player.transform.position.Add(velocity.Multiply(moveAmount));

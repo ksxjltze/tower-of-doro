@@ -1,7 +1,7 @@
 import { Component } from '@angular/core';
 import { Matrix3x3 } from '../engine/matrix';
 import { Input } from '../engine/input';
-import { TileDescriptor, TileType, TileFlags } from '../engine/tile';
+import { TileDescriptor, TileFlags } from '../engine/tile';
 import { kTileSize, kTilemapWidth, kTilemapHeight } from '../engine/tile';
 import { Transform2D } from '../engine/transform';
 import { Vector2 } from '../engine/vector';
@@ -427,7 +427,9 @@ class Renderer {
 
     objects.forEach(gameObject => {
       //temp
-      const sprite = gameObject.GetBehaviour<SpriteBehaviour>(BehaviourType.Sprite);
+      const spriteBehaviour = gameObject.GetBehaviour<SpriteBehaviour>(BehaviourType.Sprite);
+      const sprite = spriteBehaviour?.sprite;
+
       if (sprite) {
         if (sprite.texture?.changed) {
           this.setTexture(sprite.texture?.handle!);
@@ -436,7 +438,7 @@ class Renderer {
 
         if (sprite.animated) {
           this.uniform_Sprite_UV_Size_X.set([1 / sprite.frameCount]);
-          this.uniform_Sprite_UV_Offset_X.set([Math.floor(sprite.frameIndex) / sprite.frameCount]);
+          this.uniform_Sprite_UV_Offset_X.set([Math.floor(spriteBehaviour.frameIndex) / sprite.frameCount]);
         }
         else {
           this.uniform_Sprite_UV_Size_X.set([1]);
@@ -445,7 +447,7 @@ class Renderer {
 
         matrix
           .translate([gameObject.transform.position.x, gameObject.transform.position.y])
-          .scale([sprite.flipX ? -scale : scale, scale]);
+          .scale([spriteBehaviour.flipX ? -scale : scale, scale]);
       }
       else {
         matrix
