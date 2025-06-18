@@ -4,6 +4,7 @@ import { GameSystem } from "./game.system";
 import { Renderer } from "./renderer";
 import { Sprite, SpriteBehaviour } from "./sprite.behaviour";
 import { Texture } from "./texture";
+import { TileDescriptor } from "./tile";
 import { Time } from "./time";
 
 class SpriteSystem extends GameSystem{

@@ -1,3 +1,4 @@
+import { Renderer } from "./renderer";
 import { Sprite, SpriteBehaviour } from "./sprite.behaviour";
 import { Texture } from "./texture";
 
@@ -24,6 +25,7 @@ enum TileFlags {
 class TileDescriptor {
   constructor(
     public name: string,
+    public id: number,
     public type: TileType,
     public sprite: Sprite,
     public flags: TileFlags = TileFlags.None,
@@ -36,11 +38,17 @@ class TileMap {
   constructor() {
     this.descriptors = [];
   }
+
+  setTile([x, y]: [number, number], tileDescriptor: TileDescriptor) {
+    const textureOffsetX = tileDescriptor.id / this.descriptors.length;
+
+    Renderer.instance.setTile([x, y], [textureOffsetX, 0]);
+  }
 }
 
-const kTileSize = 16; // 16x16 pixels
-const kTilemapWidth = 16;
-const kTilemapHeight = 8;
+const kTileSize = 64;
+const kTileMapInitialWidth = 16;
+const kTileMapInitialHeight = 8;
 
 export { Tile, TileFlags, TileDescriptor, TileMap, TileType };
-export { kTileSize, kTilemapWidth, kTilemapHeight };
+export { kTileSize, kTileMapInitialWidth as kTilemapWidth, kTileMapInitialHeight as kTilemapHeight };

@@ -1,13 +1,12 @@
-<section id="editor">
-    <div id="tile-map-panel">
+<section id="editor" class="flex flex-row w-screen h-screen">
+    <div id="tile-map-panel" class="border-4 border-black">
         <div class="grid">
-            @for (tileDescriptor of this.tileMap.descriptors; track $index) {
-                <img src="{{tileDescriptor.sprite.texture?.src}}"/>
+            @for (tileDescriptor of tileMap.descriptors; track $index) {
+                <img (click)="selectTile(tileDescriptor)" src="{{tileDescriptor.sprite.texture?.src}}"/>
             }
         </div>
     </div>
-    <div id="inspector-panel"></div>
-    <div class="scene-view">
-        <canvas class="w-full h-full" id="gameCanvas"></canvas>
+    <div class="scene-view flex w-full h-full">
+        <canvas (click)="handleCanvasClick($event)" class="w-full h-full grow" id="gameCanvas"></canvas>
     </div>
 </section>

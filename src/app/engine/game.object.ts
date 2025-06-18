@@ -38,6 +38,10 @@ class GameObject {
     GetBehaviour<T extends GameBehaviour>(type: BehaviourType): T | undefined {
         return this.behaviours.get(type) as T;
     }
+
+    HasBehaviour(type: BehaviourType) {
+        return this.behaviours.has(type);
+    }
 }
 
 export { GameObject };

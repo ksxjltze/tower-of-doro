@@ -11,7 +11,7 @@ class Camera2D {
     aspectRatio: number;
     matrix: Matrix3x3;
 
-    scalingMode: ScalingMode = ScalingMode.ScreenSize;
+    scalingMode: ScalingMode = ScalingMode.Fixed;
 
     referenceResolution:[number, number] = [1920, 1080];
     resolutionScale: [number, number] = [1, 1];
@@ -36,8 +36,14 @@ class Camera2D {
             .rotate(rot)
             .scale(scale);
 
-        return matrix
-            .scale(this.resolutionScale)
+            switch (this.scalingMode) {
+                case ScalingMode.Fixed:
+                    return matrix
+                        .scale([1 / this.aspectRatio, 1]);
+                case ScalingMode.ScreenSize:
+                    return matrix
+                        .scale(this.resolutionScale)
+            }
     }
 
     updateResolutionScale(width: number, height: number) {

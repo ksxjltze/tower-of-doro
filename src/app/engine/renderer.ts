@@ -43,7 +43,8 @@ class Renderer {
 
   tileMapMatrixValue: Float32Array = new Float32Array(12); // 3x4 matrix for tilemap transformations
   tileMapColor: Float32Array = new Float32Array(4); // RGBA color for tilemap
-
+  tileOffset: number;
+  
   // Uniform values
   uniform_Matrix: Float32Array = new Float32Array();
   uniform_Color: Float32Array = new Float32Array();
@@ -51,7 +52,11 @@ class Renderer {
   uniform_Sprite_UV_Offset_X: Float32Array = new Float32Array();
 
   //camera?
-  baseScale = 2.0 / kTileSize;
+  baseScale = 1 / 8;
+
+  constructor() {
+    this.tileOffset = 0;
+  }
 
   async initWebGPU() {
     if (!navigator.gpu) {
@@ -266,7 +271,7 @@ class Renderer {
     this.uniformBuffer = uniformBuffer;
     this.uniformValues = uniformValues;
     this.bindGroup = bindGroup;
-    this.sampler =  sampler;
+    this.sampler = sampler;
   }
 
   async createTileMapPipeline(tileMapShader: GPUShaderModule, vertexBuffers: GPUVertexBufferLayout[]) {
@@ -327,22 +332,12 @@ class Renderer {
     const data = new ArrayBuffer(tileMapBufferSize);
     const tileMapData = new Float32Array(data);
 
-    for (let i = 0; i < kTilemapWidth * kTilemapHeight; i++) {
-      // Set position based on tile index
-      const x = (i % kTilemapWidth);
-      const y = Math.floor(i / kTilemapWidth);
-
-      tileMapData[i * offset] = x; // x position
-      tileMapData[i * offset + 1] = y; // y position
-      tileMapData[i * offset + 2] = 0.5000001; //texture offset
-      tileMapData[i * offset + 3] = 0;
-    }
+    this.tileOffset = offset;
+    this.updateTileMap(tileMapData, offset);
 
     //textures
-    const tileMaptextures = await this.loadTilemapTextures();
-
-    //temp
-    const tileMapTexture = tileMaptextures[0];
+    const tileTextures = await this.loadTileSheet();
+    const tileSheet = tileTextures[0];
 
     const sampler = device.createSampler({
       label: 'sampler for object',
@@ -362,7 +357,7 @@ class Renderer {
         { binding: 0, resource: { buffer: this.tileMapBuffer } },
         { binding: 1, resource: { buffer: tileMapUniformBuffer } },
         { binding: 2, resource: sampler },
-        { binding: 3, resource: tileMapTexture.createView() },
+        { binding: 3, resource: tileSheet.createView() },
       ],
     });
 
@@ -370,6 +365,66 @@ class Renderer {
     this.tileMapUniformsBuffer = tileMapUniformBuffer;
     this.tileMapUniformValues = tileMapUniformValues;
     this.tileMapColor.set([1.0, 1.0, 1.0, 1.0]);
+  }
+
+  setTile([x, y]: [number, number], [textureX, textureY]: [number, number]) {
+    if (!this.tileMapValues)
+      return;
+
+    const i = y * kTilemapWidth + x;
+    const tileMapData = this.tileMapValues as Float32Array;
+
+    tileMapData[i * this.tileOffset] = x; // x position
+    tileMapData[i * this.tileOffset + 1] = y; // y position
+    tileMapData[i * this.tileOffset + 2] = textureX; //texture offset x
+    tileMapData[i * this.tileOffset + 3] = textureY; //texture offset y
+
+    console.log(i, x, y);
+  }
+
+  updateTileMap(tileMapData: Float32Array, offset: number) {
+    for (let i = 0; i < kTilemapWidth * kTilemapHeight; i++) {
+      // Set position based on tile index
+      const x = (i % kTilemapWidth);
+      const y = Math.floor(i / kTilemapWidth);
+
+      tileMapData[i * offset] = x; // x position
+      tileMapData[i * offset + 1] = y; // y position
+      tileMapData[i * offset + 2] = 0; //texture offset x
+      tileMapData[i * offset + 3] = 0; //texture offset y
+    }
+  }
+
+  mutateSprite(matrix: Matrix3x3, gameObject: GameObject, scale: number) {
+    const spriteBehaviour = gameObject.GetBehaviour<SpriteBehaviour>(BehaviourType.Sprite);
+    const sprite = spriteBehaviour?.sprite;
+
+    if (sprite) {
+      if (sprite.texture?.changed) {
+        this.setTexture(sprite.texture?.handle!);
+        sprite.texture.changed = false;
+      }
+
+      if (sprite.animated) {
+        this.uniform_Sprite_UV_Size_X.set([1 / sprite.frameCount]);
+        this.uniform_Sprite_UV_Offset_X.set([Math.floor(spriteBehaviour.frameIndex) / sprite.frameCount]);
+      }
+      else {
+        this.uniform_Sprite_UV_Size_X.set([1]);
+        this.uniform_Sprite_UV_Offset_X.set([0]);
+      }
+
+      matrix
+        .translate([gameObject.transform.position.x, gameObject.transform.position.y])
+        .scale([spriteBehaviour.flipX ? -scale : scale, scale]);
+    }
+    else {
+      matrix
+        .translate([gameObject.transform.position.x, gameObject.transform.position.y])
+        .scale([scale, scale]);
+    }
+
+    return matrix;
   }
 
   render(objects: GameObject[]) {
@@ -401,9 +456,9 @@ class Renderer {
       const scale = this.baseScale; // scale to fit the tile size
       const matrix = Matrix3x3.identity();
 
-      matrix.translate([-1, -0.5]); //center the tilemap
-      matrix.scale([scale, scale]);
+      matrix.translate([-1, -1]); //center the tilemap
       matrix.translate([0.5, 0.5]);
+      matrix.scale([scale, scale]);
       matrix.multiply(viewMatrix);
 
       this.tileMapMatrixValue.set(matrix);
@@ -426,33 +481,8 @@ class Renderer {
     const uniformValues = this.uniformValues;
 
     objects.forEach(gameObject => {
-      //temp
-      const spriteBehaviour = gameObject.GetBehaviour<SpriteBehaviour>(BehaviourType.Sprite);
-      const sprite = spriteBehaviour?.sprite;
-
-      if (sprite) {
-        if (sprite.texture?.changed) {
-          this.setTexture(sprite.texture?.handle!);
-          sprite.texture.changed = false;
-        }
-
-        if (sprite.animated) {
-          this.uniform_Sprite_UV_Size_X.set([1 / sprite.frameCount]);
-          this.uniform_Sprite_UV_Offset_X.set([Math.floor(spriteBehaviour.frameIndex) / sprite.frameCount]);
-        }
-        else {
-          this.uniform_Sprite_UV_Size_X.set([1]);
-          this.uniform_Sprite_UV_Offset_X.set([0]);
-        }
-
-        matrix
-          .translate([gameObject.transform.position.x, gameObject.transform.position.y])
-          .scale([spriteBehaviour.flipX ? -scale : scale, scale]);
-      }
-      else {
-        matrix
-          .translate([gameObject.transform.position.x, gameObject.transform.position.y])
-          .scale([scale, scale]);
+      if (gameObject.HasBehaviour(BehaviourType.Sprite)) {
+        this.mutateSprite(matrix, gameObject, scale);
       }
 
       matrix.multiply(viewMatrix);
@@ -476,7 +506,7 @@ class Renderer {
 
   //temp
   setTexture(texture: GPUTexture) {
-    if (!this.device || ! this.renderPipeline || !this.sampler || !this.uniformBuffer)
+    if (!this.device || !this.renderPipeline || !this.sampler || !this.uniformBuffer)
       return;
 
     const bindGroup = this.device.createBindGroup({
@@ -526,9 +556,9 @@ class Renderer {
     return await this.loadTexture(url);
   }
 
-  async loadTilemapTextures(): Promise<GPUTexture[]> {
+  async loadTileSheet(): Promise<GPUTexture[]> {
     const urls = [
-      '/resources/images/textures/tiles/tilesheet.png'
+      '/resources/images/textures/tiles/tilesheet_debug.png'
     ];
 
     const textures: GPUTexture[] = [];
