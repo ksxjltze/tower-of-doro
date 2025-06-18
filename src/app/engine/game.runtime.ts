@@ -65,7 +65,7 @@ class GameRuntime extends Runtime {
         if (!this.runSprite || !this.idleSprite)
             return;
 
-        const speed = 1;
+        const speed = 2;
         const moveAmount = speed * Time.deltaTime;
 
         let moveX = 0;

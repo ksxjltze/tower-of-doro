@@ -52,7 +52,7 @@ class Renderer {
   uniform_Sprite_UV_Offset_X: Float32Array = new Float32Array();
 
   //camera?
-  baseScale = 1 / 8;
+  baseScale = 1 / 4;
 
   constructor() {
     this.tileOffset = 0;
@@ -383,6 +383,11 @@ class Renderer {
   }
 
   updateTileMap(tileMapData: Float32Array, offset: number) {
+    if (!this.context)
+      return;
+    
+    const tileWidthClip = kTileSize / this.context.canvas.width;
+
     for (let i = 0; i < kTilemapWidth * kTilemapHeight; i++) {
       // Set position based on tile index
       const x = (i % kTilemapWidth);
@@ -395,7 +400,7 @@ class Renderer {
     }
   }
 
-  mutateSprite(matrix: Matrix3x3, gameObject: GameObject, scale: number) {
+  mutateSprite(matrix: Matrix3x3, gameObject: GameObject, scale: number = 1) {
     const spriteBehaviour = gameObject.GetBehaviour<SpriteBehaviour>(BehaviourType.Sprite);
     const sprite = spriteBehaviour?.sprite;
 
@@ -447,18 +452,16 @@ class Renderer {
       label: 'render quad encoder',
     });
 
+    Camera2D.instance.transform.scale = [this.baseScale, this.baseScale];
+
     const viewMatrix = Camera2D.instance.computeViewMatrix();
     const pass = encoder.beginRenderPass(renderPassDescriptor);
     if (this.tileMapPipeline && this.tileMapBindGroup && this.tileMapBuffer && this.tileMapValues && this.tileMapUniformValues && this.tileMapUniformsBuffer) {
       // upload the uniform values to the uniform buffer
       device.queue.writeBuffer(this.tileMapBuffer, 0, this.tileMapValues);
 
-      const scale = this.baseScale; // scale to fit the tile size
       const matrix = Matrix3x3.identity();
-
-      matrix.translate([-1, -1]); //center the tilemap
-      matrix.translate([0.5, 0.5]);
-      matrix.scale([scale, scale]);
+      matrix.translate([-kTilemapWidth / 2 + 0.5, -kTilemapHeight / 2 + 0.5]); //center the tilemap
       matrix.multiply(viewMatrix);
 
       this.tileMapMatrixValue.set(matrix);
@@ -473,7 +476,6 @@ class Renderer {
     }
 
     //transform the model matrix
-    let scale = this.baseScale; // scale to fit the tile size
     const matrix = Matrix3x3.identity();
 
     const uniformBuffer = this.uniformBuffer;
@@ -482,7 +484,7 @@ class Renderer {
 
     objects.forEach(gameObject => {
       if (gameObject.HasBehaviour(BehaviourType.Sprite)) {
-        this.mutateSprite(matrix, gameObject, scale);
+        this.mutateSprite(matrix, gameObject);
       }
 
       matrix.multiply(viewMatrix);
