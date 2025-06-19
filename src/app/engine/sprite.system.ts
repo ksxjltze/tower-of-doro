@@ -2,6 +2,7 @@ import { BehaviourType, GameBehaviour } from "./game.behaviour";
 import { GameObject } from "./game.object";
 import { GameSystem } from "./game.system";
 import { Renderer } from "./renderer";
+import { Resources } from "./resources";
 import { Sprite, SpriteBehaviour } from "./sprite.behaviour";
 import { Texture } from "./texture";
 import { TileDescriptor } from "./tile";
@@ -40,7 +41,11 @@ class SpriteSystem extends GameSystem{
     }
 
     async loadTextureIntoSprite(sprite: Sprite, url: string) {
-        const handle = await Renderer.instance.loadTexture(url);
+        const device = Renderer.instance.device;
+        if (!device)
+            return;
+
+        const handle = await Resources.loadTexture(url, device);
         sprite.texture = new Texture(handle, url);
     }
 }

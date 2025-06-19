@@ -1,22 +1,17 @@
-import { Component } from '@angular/core';
 import { Matrix3x3 } from '../engine/matrix';
-import { Input } from '../engine/input';
-import { TileDescriptor, TileFlags } from '../engine/tile';
 import { kTileSize, kTilemapWidth, kTilemapHeight } from '../engine/tile';
-import { Transform2D } from '../engine/transform';
-import { Vector2 } from '../engine/vector';
-import { shaders, tilemapShader } from '../engine/shaders';
+import { shaders, tilemapShader, pickingShader } from '../engine/shaders';
 import { GameObject } from './game.object';
 import { SpriteBehaviour } from './sprite.behaviour';
 import { BehaviourType } from './game.behaviour';
-import { GameComponent } from '../game/game.component';
 import { Camera2D } from './camera2d';
+import { Resources } from './resources';
 
-async function loadImageBitmap(url: URL | string): Promise<ImageBitmap> {
-  const res = await fetch(url);
-  const blob = await res.blob();
-  return await createImageBitmap(blob, { colorSpaceConversion: 'none' });
-}
+enum PipelineType {
+  Sprite,
+  Tile,
+  Picking
+};
 
 class Renderer {
   static instance: Renderer;
@@ -26,6 +21,9 @@ class Renderer {
   device?: GPUDevice = undefined;
   vertexBuffer?: GPUBuffer = undefined;
   renderPipeline?: GPURenderPipeline = undefined;
+
+  pipelineMap = new Map<PipelineType, GPURenderPipeline>();
+  shaderMap = new Map<PipelineType, GPUShaderModule>();
 
   renderPassDescriptor?: GPURenderPassDescriptor = undefined;
   uniformBuffer?: GPUBuffer = undefined;
@@ -170,6 +168,42 @@ class Renderer {
     observer.observe(canvas);
   }
 
+  async createPickingPipeline(vertexBuffers: GPUVertexBufferLayout[]) {
+    const device = this.device;
+    if (!device)
+      return;
+
+    const shaderModule = device.createShaderModule({
+      code: pickingShader 
+    });
+
+    const pipelineDescriptor: GPURenderPipelineDescriptor = {
+      vertex: {
+        module: shaderModule,
+        entryPoint: "vertex_main",
+        buffers: vertexBuffers,
+      },
+      fragment: {
+        module: shaderModule,
+        entryPoint: "fragment_main",
+        targets: [
+          {
+            format: navigator.gpu.getPreferredCanvasFormat(),
+          },
+        ],
+      },
+      primitive: {
+        topology: "triangle-list",
+      },
+      layout: "auto",
+    };
+
+    const pipeline = device.createRenderPipeline(pipelineDescriptor);
+
+    this.shaderMap.set(PipelineType.Picking, shaderModule);
+    this.pipelineMap.set(PipelineType.Picking, pipeline);
+  }
+
   async createRenderPipeline(shaderModule: GPUShaderModule, vertexBuffers: GPUVertexBufferLayout[]) {
     const device = this.device;
     if (!device)
@@ -246,8 +280,8 @@ class Renderer {
     // colorValue.set([Math.random(), Math.random(), Math.random(), 1]);
     this.uniform_Color.set([1.0, 1.0, 1.0, 1.0]); // white color
 
-    const doroIdleTexture = await this.loadDoroTexture();
-    const doroRunTexture = await this.loadDoroRunSpriteSheet();
+    const doroIdleTexture = await Resources.loadDoroTexture(device);
+    const doroRunTexture = await Resources.loadDoroRunSpriteSheet(device);
 
     const sampler = device.createSampler({
       label: 'sampler for object',
@@ -336,7 +370,7 @@ class Renderer {
     this.updateTileMap(tileMapData, offset);
 
     //textures
-    const tileTextures = await this.loadTileSheet();
+    const tileTextures = await Resources.loadTileSheet(device);
     const tileSheet = tileTextures[0];
 
     const sampler = device.createSampler({
@@ -522,73 +556,6 @@ class Renderer {
     });
 
     this.bindGroup = bindGroup;
-  }
-
-  async loadDoroRunSpriteSheet(): Promise<GPUTexture> {
-    const url = '/resources/images/textures/doro/sprites/run/doro-run.png';
-    return await this.loadTexture(url);
-  }
-
-  async loadTexture(url: string): Promise<GPUTexture> {
-    const source = await loadImageBitmap(url);
-    const texture = this.device?.createTexture({
-      label: url,
-      format: 'rgba8unorm',
-      size: [source.width, source.height],
-      usage: GPUTextureUsage.TEXTURE_BINDING |
-        GPUTextureUsage.COPY_DST |
-        GPUTextureUsage.RENDER_ATTACHMENT,
-    });
-
-    if (!texture) {
-      throw new Error("Failed to create texture.");
-    }
-
-    this.device?.queue.copyExternalImageToTexture(
-      { source, flipY: true },
-      { texture },
-      { width: source.width, height: source.height },
-    );
-
-    return texture;
-  }
-
-  async loadDoroTexture(): Promise<GPUTexture> {
-    const url = '/resources/images/textures/doro/sprites/idle/doro.png';
-    return await this.loadTexture(url);
-  }
-
-  async loadTileSheet(): Promise<GPUTexture[]> {
-    const urls = [
-      '/resources/images/textures/tiles/tilesheet_debug.png'
-    ];
-
-    const textures: GPUTexture[] = [];
-    for (const url of urls) {
-      const source = await loadImageBitmap(url);
-      const texture = this.device?.createTexture({
-        label: url,
-        format: 'rgba8unorm',
-        size: [source.width, source.height],
-        usage: GPUTextureUsage.TEXTURE_BINDING |
-          GPUTextureUsage.COPY_DST |
-          GPUTextureUsage.RENDER_ATTACHMENT,
-      });
-
-      if (!texture) {
-        throw new Error(`Failed to create texture for ${url}.`);
-      }
-
-      this.device?.queue.copyExternalImageToTexture(
-        { source, flipY: true },
-        { texture },
-        { width: source.width, height: source.height },
-      );
-
-      textures.push(texture);
-    }
-
-    return textures;
   }
 }
 
