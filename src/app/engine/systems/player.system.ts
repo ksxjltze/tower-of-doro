@@ -3,14 +3,14 @@ import { GameObject } from "../core/game.object";
 import { GameSystem } from "../core/game.system";
 import { Matrix3x3 } from "../core/matrix";
 import { Renderer } from "../core/renderer";
-import { MovementBehaviour } from "../behaviours/movement.behaviour";
+import { PlayerBehaviour } from "../behaviours/player.behaviour";
 
-class MovementSystem extends GameSystem {
-    override behaviours: MovementBehaviour[];
+class PlayerSystem extends GameSystem {
+    override behaviours: PlayerBehaviour[];
     constructor() {
         super();
         this.behaviours = [];
-        GameSystem.RegisterSystem(BehaviourType.Movement, this);
+        GameSystem.RegisterSystem(BehaviourType.Player, this);
     }
 
     update() {
@@ -23,12 +23,12 @@ class MovementSystem extends GameSystem {
         return;
     }
 
-    add(gameObject: GameObject): GameBehaviour {
-        const behavior = new MovementBehaviour(gameObject);
+    newBehaviour(gameObject: GameObject): GameBehaviour {
+        const behavior = new PlayerBehaviour(gameObject);
         this.behaviours.push(behavior)
 
         return behavior;
     }
 }
 
-export { MovementSystem }
+export { PlayerSystem }

@@ -3,7 +3,8 @@ import { GameObject } from "./game.object";
 enum BehaviourType {
     None,
     Sprite,
-    Movement
+    Player,
+    Script
 }
 
 abstract class GameBehaviour {

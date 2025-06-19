@@ -2,6 +2,9 @@ import { Component } from '@angular/core';
 import { Runtime } from '../engine/runtime/runtime';
 import { kTileSize, kTilemapWidth, kTilemapHeight, TileDescriptor, TileMap, TileType } from '../engine/core/tile';
 import { Sprite } from '../engine/behaviours/sprite.behaviour';
+import { GameSystem } from '../engine/core/game.system';
+import { BehaviourType } from '../engine/core/game.behaviour';
+import { SpriteSystem } from '../engine/systems/sprite.system';
 
 @Component({
   selector: 'app-editor',
@@ -38,8 +41,10 @@ export class EditorComponent {
   }
 
   async CreateTileDescriptors() {
-    const spriteSystem = this.runtime.spriteSystem;
-    
+    const spriteSystem = GameSystem.GetSystem<SpriteSystem>(BehaviourType.Sprite);
+    if (!spriteSystem)
+      return;
+
     const grassSprite = new Sprite();
     await spriteSystem.loadTextureIntoSprite(grassSprite, "/resources/images/textures/tiles/grass_x64.png");
 

@@ -4,89 +4,39 @@ import { Runtime } from "./runtime";
 import { BehaviourType } from "../core/game.behaviour";
 import { Input } from "../core/input";
 
-import { SpriteBehaviour } from "../behaviours/sprite.behaviour";
+import { GameSystem } from "../core/game.system";
 import { Time } from "../core/time";
-import { Vector2 } from "../core/vector";
-import { MovementSystem } from "../systems/movement.system";
+import { PlayerScript } from "../scripts/player.script";
+import { PlayerSystem } from "../systems/player.system";
+import { ScriptSystem } from "../systems/script.system";
+import { SpriteSystem } from "../systems/sprite.system";
 
 class GameRuntime extends Runtime {
     player: GameObject;
-
-    runSprite?: SpriteBehaviour;
-    idleSprite?: SpriteBehaviour;
 
     elapsedTime = 0;
     lastTimestamp: DOMHighResTimeStamp | null = null;
 
     constructor() {
         super();
+
+        this.systems.push(new PlayerSystem());
+        this.systems.push(new ScriptSystem());
+        this.systems.push(new SpriteSystem());
+
         this.player = this.scene.AddObject(new GameObject("Player"));
+        this.player.SetBehaviour(BehaviourType.Script, new PlayerScript(this.player));
 
         Input.setupInput();
-        this.systems.push(new MovementSystem());
     }
 
     override init() {
+        const scriptSystem = GameSystem.GetSystem<ScriptSystem>(BehaviourType.Script);
+
         super.init(
-            () => this.loadPlayerSprite().then(() => this.initialized = true),
+            () => scriptSystem.start(),
             this.runGameLoop
         );
-    }
-
-    async loadPlayerSprite() {
-        const runAnim = this.player.AddBehaviour(BehaviourType.Sprite) as SpriteBehaviour;
-        const idleAnim = this.player.AddBehaviour(BehaviourType.Sprite) as SpriteBehaviour;
-
-        await this.spriteSystem.loadTextureIntoSprite(runAnim.sprite, '/resources/images/textures/doro/sprites/run/doro-run.png');
-        await this.spriteSystem.loadTextureIntoSprite(idleAnim.sprite, '/resources/images/textures/doro/sprites/idle/doro.png');
-
-        runAnim.sprite.frameCount = 2;
-        runAnim.sprite.animated = true;
-        runAnim.sprite.framesPerSecond = 5;
-
-        idleAnim.sprite.animated = false;
-
-        this.runSprite = runAnim;
-        this.idleSprite = idleAnim;
-    }
-
-    updatePlayer() {
-        if (!this.runSprite || !this.idleSprite)
-            return;
-
-        const speed = 4;
-        const moveAmount = speed * Time.deltaTime;
-
-        let moveX = 0;
-        let moveY = 0;
-
-        Input.GetKey(Input.Key.W) && (moveY++);
-        Input.GetKey(Input.Key.S) && (moveY--);
-
-        if (Input.GetKey(Input.Key.A)) {
-            moveX--;
-            this.runSprite.flipX = false;
-            this.idleSprite.flipX = false;
-        }
-
-        if (Input.GetKey(Input.Key.D)) {
-            moveX++;
-            this.runSprite.flipX = true;
-            this.idleSprite.flipX = true;
-        }
-
-        const velocity = new Vector2(moveX, moveY);
-        if (velocity.Length() > 0) {
-            this.player.SetBehaviour(BehaviourType.Sprite, this.runSprite);
-            this.runSprite.sprite.texture!.changed = true;
-            velocity.Normalize();
-        }
-        else {
-            this.player.SetBehaviour(BehaviourType.Sprite, this.idleSprite);
-            this.idleSprite.sprite.texture!.changed = true;
-        }
-
-        this.player.transform.position.Add(velocity.Multiply(moveAmount));
     }
 
     update(timestamp?: DOMHighResTimeStamp) {
@@ -105,13 +55,9 @@ class GameRuntime extends Runtime {
         // Update input state for the current frame
         Input.frameKeyMap.clear();
         
-
-        //WIP
         for (const system of this.systems) {
             system.update();
         }
-
-        this.updatePlayer();
     }
 
     runGameLoop(timestamp?: DOMHighResTimeStamp) {
@@ -123,3 +69,4 @@ class GameRuntime extends Runtime {
 }
 
 export { GameRuntime };
+

@@ -45,7 +45,7 @@ class SpriteSystem extends GameSystem {
         }
     }
 
-    add(gameObject: GameObject): GameBehaviour {
+    newBehaviour(gameObject: GameObject): GameBehaviour {
         const behavior = new SpriteBehaviour(gameObject);
         this.behaviours.push(behavior)
 

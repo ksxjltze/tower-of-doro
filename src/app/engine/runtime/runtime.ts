@@ -7,8 +7,6 @@ import { SpriteSystem } from "../systems/sprite.system";
 class Runtime {
     scene: Scene;
     renderer: Renderer;
-
-    spriteSystem: SpriteSystem;
     systems: GameSystem[] = [];
 
     camera: Camera2D = new Camera2D();
@@ -17,9 +15,6 @@ class Runtime {
     constructor() {
         this.scene = new Scene("NewScene");
         this.renderer = new Renderer();
-        this.spriteSystem = new SpriteSystem();
-
-        this.systems.push(this.spriteSystem);
     }
 
     init(onInit: CallableFunction | undefined = undefined,
@@ -31,10 +26,8 @@ class Runtime {
             .then(() => {
                 if (onInit)
                     onInit();
-                else {
-                    this.initialized = true;
-                }
 
+                this.initialized = true;
                 requestAnimationFrame(renderCallback.bind(this));
             })
             .catch((error: any) => {

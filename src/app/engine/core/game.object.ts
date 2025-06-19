@@ -16,6 +16,8 @@ class GameObject {
     SetBehaviour(type: BehaviourType, behavior: GameBehaviour): GameBehaviour {
         if (this.behaviours.has(type))
             this.behaviours.get(type)!.gameObject = null;
+        else
+            GameSystem.SetBehaviour(this, behavior);
 
         this.behaviours.set(type, behavior);
         behavior.gameObject = this;
@@ -23,8 +25,8 @@ class GameObject {
         return behavior;
     }
 
-    AddBehaviour(type: BehaviourType): GameBehaviour | null {
-        const behaviour = GameSystem.AddBehaviour(type, this);
+    NewBehaviour(type: BehaviourType): GameBehaviour | null {
+        const behaviour = GameSystem.NewBehaviour(type, this);
         if (!behaviour)
             return null;
 
