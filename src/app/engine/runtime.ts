@@ -1,5 +1,5 @@
 import { Renderer } from "./renderer";
-import { SpriteSystem } from "./sprite.system";
+import { SpriteSystem } from "./systems/sprite.system";
 import { Scene } from "./scene";
 import { Camera2D } from "./camera2d";
 import { GameSystem } from "./game.system";

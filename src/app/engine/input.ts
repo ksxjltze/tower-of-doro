@@ -31,6 +31,19 @@ const Input = {
     Input.keyMap.set(key, value);
     Input.frameKeyMap.set(key, value);
   },
+
+  setupInput() {
+    document.addEventListener("keydown", this.keyDownHandler.bind(this), false);
+    document.addEventListener("keyup", this.keyUpHandler.bind(this), false);
+  },
+
+  keyDownHandler(event: KeyboardEvent) {
+    Input.SetKey(event.key, true);
+  },
+
+  keyUpHandler(event: KeyboardEvent) {
+    Input.SetKey(event.key, false);
+  }
 }
 
-export {Input};
+export { Input };

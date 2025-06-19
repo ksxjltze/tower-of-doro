@@ -1,5 +1,5 @@
 import { Renderer } from "./renderer";
-import { Sprite, SpriteBehaviour } from "./sprite.behaviour";
+import { Sprite, SpriteBehaviour } from "./behaviours/sprite.behaviour";
 import { Texture } from "./texture";
 
 class Tile {

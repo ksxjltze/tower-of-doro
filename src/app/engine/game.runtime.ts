@@ -5,10 +5,11 @@ import { Camera2D } from "./camera2d";
 import { BehaviourType } from "./game.behaviour";
 import { Input } from "./input";
 
-import { SpriteBehaviour } from "./sprite.behaviour";
+import { SpriteBehaviour } from "./behaviours/sprite.behaviour";
 import { Time } from "./time";
 import { Vector2 } from "./vector";
 import { GameSystem } from "./game.system";
+import { MovementSystem } from "./systems/movement.system";
 
 class GameRuntime extends Runtime {
     player: GameObject;
@@ -22,17 +23,19 @@ class GameRuntime extends Runtime {
     constructor() {
         super();
         this.player = this.scene.AddObject(new GameObject("Player"));
-        this.setupInput();
+
+        Input.setupInput();
+        this.systems.push(new MovementSystem());
     }
 
     override init() {
         super.init(
-            () => this.setupPlayer().then(() => this.initialized = true),
+            () => this.loadPlayerSprite().then(() => this.initialized = true),
             this.runGameLoop
         );
     }
 
-    async setupPlayer() {
+    async loadPlayerSprite() {
         const runAnim = this.player.AddBehaviour(BehaviourType.Sprite) as SpriteBehaviour;
         const idleAnim = this.player.AddBehaviour(BehaviourType.Sprite) as SpriteBehaviour;
 
@@ -49,24 +52,11 @@ class GameRuntime extends Runtime {
         this.idleSprite = idleAnim;
     }
 
-    setupInput() {
-        document.addEventListener("keydown", this.keyDownHandler.bind(this), false);
-        document.addEventListener("keyup", this.keyUpHandler.bind(this), false);
-    }
-
-    keyDownHandler(event: KeyboardEvent) {
-        Input.SetKey(event.key, true);
-    }
-
-    keyUpHandler(event: KeyboardEvent) {
-        Input.SetKey(event.key, false);
-    }
-
     updatePlayer() {
         if (!this.runSprite || !this.idleSprite)
             return;
 
-        const speed = 2;
+        const speed = 4;
         const moveAmount = speed * Time.deltaTime;
 
         let moveX = 0;
@@ -116,8 +106,14 @@ class GameRuntime extends Runtime {
 
         // Update input state for the current frame
         Input.frameKeyMap.clear();
+        
+
+        //WIP
+        for (const system of this.systems) {
+            system.update();
+        }
+
         this.updatePlayer();
-        this.spriteSystem.update();
     }
 
     runGameLoop(timestamp?: DOMHighResTimeStamp) {

@@ -1,7 +1,7 @@
 import { Component } from '@angular/core';
 import { Runtime } from '../engine/runtime';
 import { kTileSize, kTilemapWidth, kTilemapHeight, TileDescriptor, TileMap, TileType } from '../engine/tile';
-import { Sprite } from '../engine/sprite.behaviour';
+import { Sprite } from '../engine/behaviours/sprite.behaviour';
 
 @Component({
   selector: 'app-editor',

@@ -1,6 +1,6 @@
-import { BehaviourType, GameBehaviour } from "./game.behaviour";
-import { GameObject } from "./game.object";
-import { Texture } from "./texture"
+import { BehaviourType, GameBehaviour } from "../game.behaviour";
+import { GameObject } from "../game.object";
+import { Texture } from "../texture"
 
 class Sprite {
     texture: Texture | null = null;

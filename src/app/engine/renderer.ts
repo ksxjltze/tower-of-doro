@@ -2,7 +2,7 @@ import { Matrix3x3 } from '../engine/matrix';
 import { kTileSize, kTilemapWidth, kTilemapHeight } from '../engine/tile';
 import { shaders, tilemapShader, pickingShader } from '../engine/shaders';
 import { GameObject } from './game.object';
-import { SpriteBehaviour } from './sprite.behaviour';
+import { SpriteBehaviour } from './behaviours/sprite.behaviour';
 import { BehaviourType } from './game.behaviour';
 import { Camera2D } from './camera2d';
 import { Resources } from './resources';
@@ -459,29 +459,13 @@ class Renderer {
 
     const viewMatrix = Camera2D.instance.computeViewMatrix();
     const pass = encoder.beginRenderPass(renderPassDescriptor);
-    if (this.tileMapPipeline && this.tileMapBindGroup && this.tileMapBuffer && this.tileMapValues && this.tileMapUniformValues && this.tileMapUniformsBuffer) {
-      // upload the uniform values to the uniform buffer
-      device.queue.writeBuffer(this.tileMapBuffer, 0, this.tileMapValues);
 
-      const matrix = Matrix3x3.identity();
-      matrix.translate([-kTilemapWidth / 2 + 0.5, -kTilemapHeight / 2 + 0.5]); //center the tilemap
-      matrix.multiply(viewMatrix);
-
-      this.tileMapMatrixValue.set(matrix);
-      device.queue.writeBuffer(this.tileMapUniformsBuffer, 0, this.tileMapUniformValues);
-
-      pass.setPipeline(this.tileMapPipeline);
-      pass.setBindGroup(0, this.tileMapBindGroup);
-      pass.setVertexBuffer(0, this.vertexBuffer);
-      pass.setBindGroup(0, this.tileMapBindGroup);
-
-      pass.draw(6, kTilemapWidth * kTilemapHeight, 0, 0); // draw all tiles
-    }
+    this.drawTileMap(pass, device, viewMatrix);
 
     const uniformBuffer = this.uniformBuffer;
     const renderPipeline = this.renderPipeline;
     const uniformValues = this.uniformValues;
-    
+
     //scuffed
     systems.forEach(system => {
       system.render(this, (matrix) => {
@@ -504,6 +488,27 @@ class Renderer {
     pass.end();
     const commandBuffer = encoder.finish();
     device.queue.submit([commandBuffer]);
+  }
+
+  drawTileMap(pass: GPURenderPassEncoder, device: GPUDevice, viewMatrix: Matrix3x3) {
+    if (this.tileMapPipeline && this.tileMapBindGroup && this.tileMapBuffer && this.tileMapValues && this.tileMapUniformValues && this.tileMapUniformsBuffer) {
+      // upload the uniform values to the uniform buffer
+      device.queue.writeBuffer(this.tileMapBuffer, 0, this.tileMapValues);
+
+      const matrix = Matrix3x3.identity();
+      matrix.translate([-kTilemapWidth / 2 + 0.5, -kTilemapHeight / 2 + 0.5]); //center the tilemap
+      matrix.multiply(viewMatrix);
+
+      this.tileMapMatrixValue.set(matrix);
+      device.queue.writeBuffer(this.tileMapUniformsBuffer, 0, this.tileMapUniformValues);
+
+      pass.setPipeline(this.tileMapPipeline);
+      pass.setBindGroup(0, this.tileMapBindGroup);
+      pass.setVertexBuffer(0, this.vertexBuffer);
+      pass.setBindGroup(0, this.tileMapBindGroup);
+
+      pass.draw(6, kTilemapWidth * kTilemapHeight, 0, 0); // draw all tiles
+    }
   }
 
   //temp
