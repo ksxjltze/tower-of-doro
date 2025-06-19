@@ -1,9 +1,6 @@
-import { Matrix3x3 } from '../engine/matrix';
-import { kTileSize, kTilemapWidth, kTilemapHeight } from '../engine/tile';
-import { shaders, tilemapShader, pickingShader } from '../engine/shaders';
-import { GameObject } from './game.object';
-import { SpriteBehaviour } from './behaviours/sprite.behaviour';
-import { BehaviourType } from './game.behaviour';
+import { Matrix3x3 } from './matrix';
+import { kTileSize, kTilemapWidth, kTilemapHeight } from './tile';
+import { shaders, tilemapShader, pickingShader } from './shaders';
 import { Camera2D } from './camera2d';
 import { Resources } from './resources';
 import { GameSystem } from './game.system';

@@ -1,12 +1,12 @@
-import { BehaviourType, GameBehaviour } from "../game.behaviour";
-import { GameObject } from "../game.object";
-import { GameSystem } from "../game.system";
-import { Matrix3x3 } from "../matrix";
-import { Renderer } from "../renderer";
-import { Resources } from "../resources";
 import { Sprite, SpriteBehaviour } from "../behaviours/sprite.behaviour";
-import { Texture } from "../texture";
-import { Time } from "../time";
+import { BehaviourType, GameBehaviour } from "../core/game.behaviour";
+import { GameObject } from "../core/game.object";
+import { GameSystem } from "../core/game.system";
+import { Matrix3x3 } from "../core/matrix";
+import { Renderer } from "../core/renderer";
+import { Resources } from "../core/resources";
+import { Texture } from "../core/texture";
+import { Time } from "../core/time";
 
 class SpriteSystem extends GameSystem {
     override behaviours: SpriteBehaviour[];
@@ -97,4 +97,4 @@ class SpriteSystem extends GameSystem {
     }
 }
 
-export { SpriteSystem }
+export { SpriteSystem };

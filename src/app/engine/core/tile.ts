@@ -1,6 +1,5 @@
+import { Sprite } from "../behaviours/sprite.behaviour";
 import { Renderer } from "./renderer";
-import { Sprite, SpriteBehaviour } from "./behaviours/sprite.behaviour";
-import { Texture } from "./texture";
 
 class Tile {
   constructor(
@@ -50,5 +49,4 @@ const kTileSize = 64;
 const kTileMapInitialWidth = 16;
 const kTileMapInitialHeight = 8;
 
-export { Tile, TileFlags, TileDescriptor, TileMap, TileType };
-export { kTileSize, kTileMapInitialWidth as kTilemapWidth, kTileMapInitialHeight as kTilemapHeight };
+export { kTileMapInitialHeight as kTilemapHeight, kTileMapInitialWidth as kTilemapWidth, kTileSize, Tile, TileDescriptor, TileFlags, TileMap, TileType };

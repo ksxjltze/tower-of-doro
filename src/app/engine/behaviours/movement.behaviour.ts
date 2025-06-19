@@ -1,5 +1,5 @@
-import { BehaviourType, GameBehaviour } from "../game.behaviour";
-import { GameObject } from "../game.object";
+import { BehaviourType, GameBehaviour } from "../core/game.behaviour";
+import { GameObject } from "../core/game.object";
 
 class MovementBehaviour extends GameBehaviour {
     speed: number = 4;

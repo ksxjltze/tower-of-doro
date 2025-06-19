@@ -1,6 +1,6 @@
 import { Component } from '@angular/core';
-import { Runtime } from '../engine/runtime';
-import { kTileSize, kTilemapWidth, kTilemapHeight, TileDescriptor, TileMap, TileType } from '../engine/tile';
+import { Runtime } from '../engine/runtime/runtime';
+import { kTileSize, kTilemapWidth, kTilemapHeight, TileDescriptor, TileMap, TileType } from '../engine/core/tile';
 import { Sprite } from '../engine/behaviours/sprite.behaviour';
 
 @Component({

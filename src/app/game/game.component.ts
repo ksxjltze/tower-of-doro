@@ -1,6 +1,6 @@
 import { Component } from '@angular/core';
-import { Runtime } from '../engine/runtime';
-import { GameRuntime } from '../engine/game.runtime';
+import { Runtime } from '../engine/runtime/runtime';
+import { GameRuntime } from '../engine/runtime/game.runtime';
 
 @Component({
   selector: 'app-game',

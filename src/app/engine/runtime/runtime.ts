@@ -1,8 +1,8 @@
-import { Renderer } from "./renderer";
-import { SpriteSystem } from "./systems/sprite.system";
-import { Scene } from "./scene";
-import { Camera2D } from "./camera2d";
-import { GameSystem } from "./game.system";
+import { Camera2D } from "../core/camera2d";
+import { GameSystem } from "../core/game.system";
+import { Renderer } from "../core/renderer";
+import { Scene } from "../core/scene";
+import { SpriteSystem } from "../systems/sprite.system";
 
 class Runtime {
     scene: Scene;

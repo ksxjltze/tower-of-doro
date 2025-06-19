@@ -1,8 +1,8 @@
-import { BehaviourType, GameBehaviour } from "../game.behaviour";
-import { GameObject } from "../game.object";
-import { GameSystem } from "../game.system";
-import { Matrix3x3 } from "../matrix";
-import { Renderer } from "../renderer";
+import { BehaviourType, GameBehaviour } from "../core/game.behaviour";
+import { GameObject } from "../core/game.object";
+import { GameSystem } from "../core/game.system";
+import { Matrix3x3 } from "../core/matrix";
+import { Renderer } from "../core/renderer";
 import { MovementBehaviour } from "../behaviours/movement.behaviour";
 
 class MovementSystem extends GameSystem {

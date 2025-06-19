@@ -1,15 +1,13 @@
-import { GameObject } from "./game.object";
+import { GameObject } from "../core/game.object";
 import { Runtime } from "./runtime";
 
-import { Camera2D } from "./camera2d";
-import { BehaviourType } from "./game.behaviour";
-import { Input } from "./input";
+import { BehaviourType } from "../core/game.behaviour";
+import { Input } from "../core/input";
 
-import { SpriteBehaviour } from "./behaviours/sprite.behaviour";
-import { Time } from "./time";
-import { Vector2 } from "./vector";
-import { GameSystem } from "./game.system";
-import { MovementSystem } from "./systems/movement.system";
+import { SpriteBehaviour } from "../behaviours/sprite.behaviour";
+import { Time } from "../core/time";
+import { Vector2 } from "../core/vector";
+import { MovementSystem } from "../systems/movement.system";
 
 class GameRuntime extends Runtime {
     player: GameObject;
@@ -124,4 +122,4 @@ class GameRuntime extends Runtime {
     }
 }
 
-export { GameRuntime }
+export { GameRuntime };
