@@ -8,6 +8,7 @@ import { Input } from "./input";
 import { SpriteBehaviour } from "./sprite.behaviour";
 import { Time } from "./time";
 import { Vector2 } from "./vector";
+import { GameSystem } from "./game.system";
 
 class GameRuntime extends Runtime {
     player: GameObject;
@@ -120,12 +121,8 @@ class GameRuntime extends Runtime {
     }
 
     runGameLoop(timestamp?: DOMHighResTimeStamp) {
-        const objects: GameObject[] = [
-            this.player,
-        ];
-
         this.update(timestamp);
-        this.renderer.render(objects);
+        this.renderer.render(this.systems);
 
         requestAnimationFrame(this.runGameLoop.bind(this));
     }

@@ -6,6 +6,7 @@ import { SpriteBehaviour } from './sprite.behaviour';
 import { BehaviourType } from './game.behaviour';
 import { Camera2D } from './camera2d';
 import { Resources } from './resources';
+import { GameSystem } from './game.system';
 
 enum PipelineType {
   Sprite,
@@ -42,7 +43,7 @@ class Renderer {
   tileMapMatrixValue: Float32Array = new Float32Array(12); // 3x4 matrix for tilemap transformations
   tileMapColor: Float32Array = new Float32Array(4); // RGBA color for tilemap
   tileOffset: number;
-  
+
   // Uniform values
   uniform_Matrix: Float32Array = new Float32Array();
   uniform_Color: Float32Array = new Float32Array();
@@ -174,7 +175,7 @@ class Renderer {
       return;
 
     const shaderModule = device.createShaderModule({
-      code: pickingShader 
+      code: pickingShader
     });
 
     const pipelineDescriptor: GPURenderPipelineDescriptor = {
@@ -419,7 +420,7 @@ class Renderer {
   updateTileMap(tileMapData: Float32Array, offset: number) {
     if (!this.context)
       return;
-    
+
     const tileWidthClip = kTileSize / this.context.canvas.width;
 
     for (let i = 0; i < kTilemapWidth * kTilemapHeight; i++) {
@@ -434,39 +435,7 @@ class Renderer {
     }
   }
 
-  mutateSprite(matrix: Matrix3x3, gameObject: GameObject, scale: number = 1) {
-    const spriteBehaviour = gameObject.GetBehaviour<SpriteBehaviour>(BehaviourType.Sprite);
-    const sprite = spriteBehaviour?.sprite;
-
-    if (sprite) {
-      if (sprite.texture?.changed) {
-        this.setTexture(sprite.texture?.handle!);
-        sprite.texture.changed = false;
-      }
-
-      if (sprite.animated) {
-        this.uniform_Sprite_UV_Size_X.set([1 / sprite.frameCount]);
-        this.uniform_Sprite_UV_Offset_X.set([Math.floor(spriteBehaviour.frameIndex) / sprite.frameCount]);
-      }
-      else {
-        this.uniform_Sprite_UV_Size_X.set([1]);
-        this.uniform_Sprite_UV_Offset_X.set([0]);
-      }
-
-      matrix
-        .translate([gameObject.transform.position.x, gameObject.transform.position.y])
-        .scale([spriteBehaviour.flipX ? -scale : scale, scale]);
-    }
-    else {
-      matrix
-        .translate([gameObject.transform.position.x, gameObject.transform.position.y])
-        .scale([scale, scale]);
-    }
-
-    return matrix;
-  }
-
-  render(objects: GameObject[]) {
+  render(systems: GameSystem[]) {
     if (!this.context || !this.device || !this.renderPipeline || !this.vertexBuffer
       || !this.renderPassDescriptor || !this.uniformBuffer
       || !this.bindGroup || !this.uniformValues) {
@@ -509,30 +478,27 @@ class Renderer {
       pass.draw(6, kTilemapWidth * kTilemapHeight, 0, 0); // draw all tiles
     }
 
-    //transform the model matrix
-    const matrix = Matrix3x3.identity();
-
     const uniformBuffer = this.uniformBuffer;
     const renderPipeline = this.renderPipeline;
     const uniformValues = this.uniformValues;
+    
+    //scuffed
+    systems.forEach(system => {
+      system.render(this, (matrix) => {
+        matrix.multiply(viewMatrix);
+        this.uniform_Matrix.set(matrix);
 
-    objects.forEach(gameObject => {
-      if (gameObject.HasBehaviour(BehaviourType.Sprite)) {
-        this.mutateSprite(matrix, gameObject);
-      }
+        // upload the uniform values to the uniform buffer
+        device.queue.writeBuffer(uniformBuffer, 0, uniformValues);
 
-      matrix.multiply(viewMatrix);
-      this.uniform_Matrix.set(matrix);
+        pass.setPipeline(renderPipeline);
+        pass.setBindGroup(0, this.bindGroup);
+        pass.setVertexBuffer(0, this.vertexBuffer);
+        pass.setBindGroup(0, this.bindGroup);
 
-      // upload the uniform values to the uniform buffer
-      device.queue.writeBuffer(uniformBuffer, 0, uniformValues);
+        pass.draw(6);
+      });
 
-      pass.setPipeline(renderPipeline);
-      pass.setBindGroup(0, this.bindGroup);
-      pass.setVertexBuffer(0, this.vertexBuffer);
-      pass.setBindGroup(0, this.bindGroup);
-
-      pass.draw(6);
     });
 
     pass.end();

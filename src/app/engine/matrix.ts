@@ -1,8 +1,7 @@
-import { identity } from "rxjs";
-
 class Matrix3x3 extends Float32Array {
   constructor() {
     super(12);
+    this.identity();
   }
 
   override set(arr: number[]): Matrix3x3 {
@@ -31,6 +30,14 @@ class Matrix3x3 extends Float32Array {
 
     return dst;
   };
+
+  identity() {
+    this[0] = 1;  this[1] = 0;  this[2] = 0;
+    this[4] = 0;  this[5] = 1;  this[6] = 0;
+    this[8] = 0;  this[9] = 0;  this[10] = 1;
+
+    return this;
+  }
 
   static multiply(a: Float32Array, b: Float32Array) {
     const dst = new Matrix3x3();

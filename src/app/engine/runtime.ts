@@ -2,11 +2,14 @@ import { Renderer } from "./renderer";
 import { SpriteSystem } from "./sprite.system";
 import { Scene } from "./scene";
 import { Camera2D } from "./camera2d";
+import { GameSystem } from "./game.system";
 
 class Runtime {
     scene: Scene;
     renderer: Renderer;
+
     spriteSystem: SpriteSystem;
+    systems: GameSystem[] = [];
 
     camera: Camera2D = new Camera2D();
     initialized: boolean = false;
@@ -15,6 +18,8 @@ class Runtime {
         this.scene = new Scene("NewScene");
         this.renderer = new Renderer();
         this.spriteSystem = new SpriteSystem();
+
+        this.systems.push(this.spriteSystem);
     }
 
     init(onInit: CallableFunction | undefined = undefined,
@@ -40,7 +45,7 @@ class Runtime {
     render() {
         this
             .renderer
-            .render(this.scene.objects);
+            .render(this.systems);
 
         requestAnimationFrame(this.render.bind(this));
     }
