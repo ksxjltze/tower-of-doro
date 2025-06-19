@@ -28,7 +28,7 @@ abstract class GameSystem {
         return system.newBehaviour(gameObject);
     }
 
-    static SetBehaviour(gameObject: GameObject, behavior: GameBehaviour): void {
+    static AddBehaviour(gameObject: GameObject, behavior: GameBehaviour): void {
         const system = GameSystem.systems.get(behavior.type);
         if (!system)
             return;

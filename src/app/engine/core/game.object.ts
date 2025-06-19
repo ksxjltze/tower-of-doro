@@ -17,7 +17,7 @@ class GameObject {
         if (this.behaviours.has(type))
             this.behaviours.get(type)!.gameObject = null;
         else
-            GameSystem.SetBehaviour(this, behavior);
+            GameSystem.AddBehaviour(this, behavior);
 
         this.behaviours.set(type, behavior);
         behavior.gameObject = this;

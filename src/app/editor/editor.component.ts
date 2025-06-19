@@ -60,6 +60,7 @@ export class EditorComponent {
   ngOnInit() {
     console.log("EditorComponent initialized");
     this.runtime.init(() => {
+      const spriteSystem = new SpriteSystem(); //kek
       this.CreateTileDescriptors()
         .then();
 
