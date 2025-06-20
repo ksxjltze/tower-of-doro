@@ -2,7 +2,7 @@ import { Sprite, SpriteBehaviour } from "../behaviours/sprite.behaviour";
 import { BehaviourType, GameBehaviour } from "../core/game.behaviour";
 import { GameObject } from "../core/game.object";
 import { GameSystem } from "../core/game.system";
-import { Matrix3x3 } from "../core/matrix";
+import { Matrix3x3, Matrix4x4 } from "../core/matrix";
 import { Renderer } from "../core/renderer";
 import { Resources } from "../core/resources";
 import { Texture } from "../core/texture";
@@ -33,12 +33,12 @@ class SpriteSystem extends GameSystem {
         }
     }
 
-    render(renderer: Renderer, drawFn: (matrix: Matrix3x3) => void) {
+    override render = (renderer: Renderer, drawFn: (matrix: Matrix4x4) => void) => {
         for (const behaviour of this.behaviours) {
             if (!behaviour.gameObject)
                 continue;
-            
-            const matrix = new Matrix3x3();
+
+            const matrix = new Matrix4x4();
             this.mutateSprite(renderer, matrix, behaviour);
 
             drawFn(matrix);
@@ -61,7 +61,7 @@ class SpriteSystem extends GameSystem {
         sprite.texture = new Texture(handle, url);
     }
 
-    mutateSprite(renderer: Renderer, matrix: Matrix3x3, behaviour: SpriteBehaviour, scale: number = 1) {
+    mutateSprite(renderer: Renderer, matrix: Matrix4x4, behaviour: SpriteBehaviour, scale: number = 1) {
         const sprite = behaviour.sprite;
         const gameObject = behaviour.gameObject;
 
@@ -84,13 +84,13 @@ class SpriteSystem extends GameSystem {
             }
 
             matrix
-                .translate([gameObject.transform.position.x, gameObject.transform.position.y])
-                .scale([behaviour.flipX ? -scale : scale, scale]);
+                .scale([behaviour.flipX ? -scale : scale, scale, 1])
+                .translate([gameObject.transform.position.x, gameObject.transform.position.y, -1]);
         }
         else {
             matrix
-                .translate([gameObject.transform.position.x, gameObject.transform.position.y])
-                .scale([scale, scale]);
+                .scale([scale, scale, 1])
+                .translate([gameObject.transform.position.x, gameObject.transform.position.y, -1]);
         }
 
         return matrix;

@@ -1,13 +1,17 @@
 import { BehaviourType, GameBehaviour } from "./game.behaviour"
 import { GameObject } from "./game.object";
-import { Matrix3x3 } from "./matrix";
+import { Matrix3x3, Matrix4x4 } from "./matrix";
 import { Renderer } from "./renderer";
 
 abstract class GameSystem {
     abstract behaviours: Array<GameBehaviour>;
     abstract update(): void;
-    abstract render(renderer: Renderer, drawFn: (matrix: Matrix3x3) => void): void;
     abstract newBehaviour(gameObject: GameObject): GameBehaviour;
+
+    render: ((renderer: Renderer, drawFn: (matrix: Matrix4x4) => void) => void) | undefined;
+    constructor() {
+        this.render = undefined;
+    }
 
     static readonly types: Map<string, BehaviourType> = new Map<string, BehaviourType>();
     static readonly systems: Map<BehaviourType, GameSystem> = new Map<BehaviourType, GameSystem>();

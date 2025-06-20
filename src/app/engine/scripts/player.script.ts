@@ -57,7 +57,7 @@ class PlayerScript extends ScriptBehaviour {
         if (!this.gameObject)
             return;
 
-        const speed = 4;
+        const speed = 64;
         const moveAmount = speed * Time.deltaTime;
 
         let moveX = 0;

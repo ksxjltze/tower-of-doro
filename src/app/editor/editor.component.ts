@@ -5,6 +5,7 @@ import { Sprite } from '../engine/behaviours/sprite.behaviour';
 import { GameSystem } from '../engine/core/game.system';
 import { BehaviourType } from '../engine/core/game.behaviour';
 import { SpriteSystem } from '../engine/systems/sprite.system';
+import { Vector2 } from '../engine/core/vector';
 
 @Component({
   selector: 'app-editor',
@@ -32,12 +33,17 @@ export class EditorComponent {
 
     console.log("Offset X, Offset Y:",event.offsetX, event.offsetY);
 
-    const x = Math.max(0, Math.ceil(event.offsetX / kTileSize) - 1);
-    const y = Math.max(0, kTilemapHeight - Math.ceil(event.offsetY / kTileSize));
+    const mousePos = new Vector2(event.offsetX, event.offsetY);
+    const values = mousePos.applyMatrix(this.runtime.renderer.tileMapMatrix);
 
-    console.log("X, Y:", x, y);
+    console.log(values);
 
-    this.tileMap.setTile([x, y], this.selectedTile);
+    // const x = Math.max(0, Math.ceil(event.offsetX / kTileSize) - 1);
+    // const y = Math.max(0, kTilemapHeight - Math.ceil(event.offsetY / kTileSize));
+
+    // console.log("X, Y:", x, y);
+
+    // this.tileMap.setTile([x, y], this.selectedTile);
   }
 
   async CreateTileDescriptors() {

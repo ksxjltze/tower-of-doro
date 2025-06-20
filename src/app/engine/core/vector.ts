@@ -1,3 +1,5 @@
+import { Matrix3x3 } from "./matrix";
+
 class Vector2 {
   constructor(
     public x: number = 0,
@@ -16,6 +18,16 @@ class Vector2 {
     this.y *= amount;
 
     return this;
+  }
+
+  applyMatrix(matrix: Matrix3x3) {
+    const values = [this.x, this.y, 0];
+
+    const x = matrix[0] * values[0] + matrix[1] * values[1] + matrix[2] * values[2];
+    const y = matrix[4] * values[0] + matrix[5] * values[1] + matrix[6] * values[2];
+    const z = matrix[8] * values[0] + matrix[9] * values[1] + matrix[10] * values[2];
+
+    return [x, y, z];
   }
 
   Length() {

@@ -6,7 +6,7 @@
 
     struct Uniforms {
       color: vec4f,
-      matrix: mat3x3f,
+      matrix: mat4x4f,
       sprite_uv_size_x: f32,
       sprite_uv_offset_x: f32
     }
@@ -19,9 +19,8 @@
     fn vertex_main(@location(0) position: vec4f, @location(1) uv: vec2f) -> VertexOut
     {
       var output : VertexOut;
-      let clipSpace = (uniforms.matrix * vec3f(position.xy, 1.0)).xy;
 
-      output.position = vec4f(clipSpace, 0.0, 1.0);
+      output.position = uniforms.matrix * position;
       output.uv = uv;
 
       return output;
@@ -52,7 +51,7 @@
 
     struct Uniforms {
       color: vec4f,
-      matrix: mat3x3f,
+      matrix: mat4x4f,
     }
 
     @group(0) @binding(0) var<storage, read> tilemap: array<Tile>;
@@ -67,11 +66,9 @@
       @builtin(instance_index) instanceIndex: u32) -> VertexOut
     {
       let tile = tilemap[instanceIndex];
-
       var output: VertexOut;
-      let clipSpace = (uniforms.matrix * vec3f(position.xy + tile.position, 1.0)).xy;
 
-      output.position = vec4f(clipSpace, 0.0, 1.0);
+      output.position = uniforms.matrix * (position + vec4f(tile.position.x, tile.position.y, 0, 0));
       output.uv = (uv * 0.5) + tile.texture_offset;
       output.color = uniforms.color;
 
@@ -85,7 +82,7 @@
     }
     `;
 
-    const pickingShader = `
+  const pickingShader = `
     struct VertexOut {
       @builtin(position) position : vec4f,
       color: vec4f

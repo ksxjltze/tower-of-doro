@@ -1,9 +1,10 @@
-import { Matrix3x3 } from './matrix';
+import { Matrix3x3, Matrix4x4 } from './matrix';
 import { kTileSize, kTilemapWidth, kTilemapHeight } from './tile';
 import { shaders, tilemapShader, pickingShader } from './shaders';
 import { Camera2D } from './camera2d';
 import { Resources } from './resources';
 import { GameSystem } from './game.system';
+import { Constants } from './constants';
 
 enum PipelineType {
   Sprite,
@@ -28,6 +29,7 @@ class Renderer {
   uniformValues?: ArrayBuffer | GPUAllowSharedBufferSource = undefined;
   bindGroup?: GPUBindGroup = undefined;
   sampler?: GPUSampler;
+  depthTexture?: GPUTexture;
 
   //tilemap
   tileMapBuffer?: GPUBuffer = undefined;
@@ -37,9 +39,10 @@ class Renderer {
   tileMapUniformsBuffer?: GPUBuffer = undefined;
   tileMapUniformValues?: Float32Array | GPUAllowSharedBufferSource = undefined;
 
-  tileMapMatrixValue: Float32Array = new Float32Array(12); // 3x4 matrix for tilemap transformations
-  tileMapColor: Float32Array = new Float32Array(4); // RGBA color for tilemap
+  tileMapMatrixValue: Float32Array = new Float32Array(24);
+  tileMapColor: Float32Array = new Float32Array(4);
   tileOffset: number;
+  tileMapMatrix: Matrix3x3 = new Matrix3x3();
 
   // Uniform values
   uniform_Matrix: Float32Array = new Float32Array();
@@ -92,15 +95,15 @@ class Renderer {
       alphaMode: "premultiplied",
     });
 
-    //square
+    const spriteSize = Constants.UnitSize / 2;
     const vertices: Float32Array = new Float32Array([
-      -0.5, -0.5, 0.0, 0.0,  // bottom left
-      0.5, -0.5, 1.0, 0.0,  // bottom right
-      -0.5, 0.5, 0.0, 1.0,  // top left
+      -spriteSize, -spriteSize, 0.0, 0.0,  // bottom left
+      spriteSize, -spriteSize, 1.0, 0.0,  // bottom right
+      -spriteSize, spriteSize, 0.0, 1.0,  // top left
 
-      -0.5, 0.5, 0.0, 1.0,  // top left
-      0.5, -0.5, 1.0, 0.0,  // bottom right
-      0.5, 0.5, 1.0, 1.0,  // top right
+      -spriteSize, spriteSize, 0.0, 1.0,  // top left
+      spriteSize, -spriteSize, 1.0, 0.0,  // bottom right
+      spriteSize, spriteSize, 1.0, 1.0,  // top right
     ]);
 
     this.vertexBuffer = device.createBuffer({
@@ -131,6 +134,13 @@ class Renderer {
     await this.createRenderPipeline(shaderModule, vertexBuffers);
     await this.createTileMapPipeline(tileMapShader, vertexBuffers);
 
+    const canvasTexture = this.context.getCurrentTexture();
+    const depthTexture = device.createTexture({
+      size: [canvasTexture.width, canvasTexture.height],
+      format: 'depth24plus',
+      usage: GPUTextureUsage.RENDER_ATTACHMENT,
+    });
+
     const clearColor = { r: 0.0, g: 0.0, b: 0.0, a: 0.0 };
     this.renderPassDescriptor = {
       colorAttachments: [
@@ -141,6 +151,13 @@ class Renderer {
           view: this.context.getCurrentTexture().createView(),
         },
       ],
+      depthStencilAttachment: {
+        // view: <- to be filled out when we render
+        depthClearValue: 1.0,
+        depthLoadOp: 'clear',
+        depthStoreOp: 'store',
+        view: depthTexture.createView(),
+      },
     };
 
     const observer = new ResizeObserver(entries => {
@@ -234,6 +251,12 @@ class Renderer {
       },
       primitive: {
         topology: "triangle-list",
+        // cullMode: 'back'
+      },
+      depthStencil: {
+        depthWriteEnabled: true,
+        depthCompare: 'less',
+        format: 'depth24plus',
       },
       layout: "auto",
     };
@@ -242,7 +265,7 @@ class Renderer {
 
     //size in bytes
     const colorUniformSize = 16;
-    const matrixUniformSize = 48;
+    const matrixUniformSize = 64;
     const uvOffsetUniformSize = 16;
     const uvSizeUniformSize = 16;
     const floatByteSize = 4;
@@ -330,11 +353,20 @@ class Renderer {
       primitive: {
         topology: "triangle-list",
       },
+      depthStencil: {
+        depthWriteEnabled: true,
+        depthCompare: 'less',
+        format: 'depth24plus',
+      },
       layout: "auto",
     };
     this.tileMapPipeline = device.createRenderPipeline(tileMapPipelineDescriptor);
 
-    const uniformBufferSize = (4 + 12) * 4;
+    const colorUniformSize = 16;
+    const matrixUniformSize = 64;
+    const floatByteSize = 4;
+    const uniformBufferSize = colorUniformSize + matrixUniformSize;
+
     const tileMapUniformBuffer = device.createBuffer({
       label: 'tilemap uniforms',
       size: uniformBufferSize,
@@ -345,8 +377,11 @@ class Renderer {
     const kColorOffset = 0;
     const kMatrixOffset = 4;
 
-    const tileMapColorValue = tileMapUniformValues.subarray(kColorOffset, kColorOffset + 4);
-    const tileMapMatrixValue = tileMapUniformValues.subarray(kMatrixOffset, kMatrixOffset + 12);
+    const colorUniformFloatCount = (colorUniformSize / floatByteSize);
+    const matrixUniformFloatCount = (matrixUniformSize / floatByteSize);
+
+    const tileMapColorValue = tileMapUniformValues.subarray(kColorOffset, kColorOffset + colorUniformFloatCount);
+    const tileMapMatrixValue = tileMapUniformValues.subarray(kMatrixOffset, kMatrixOffset + matrixUniformFloatCount);
 
     this.tileMapColor = tileMapColorValue;
     this.tileMapMatrixValue = tileMapMatrixValue;
@@ -418,15 +453,13 @@ class Renderer {
     if (!this.context)
       return;
 
-    const tileWidthClip = kTileSize / this.context.canvas.width;
-
     for (let i = 0; i < kTilemapWidth * kTilemapHeight; i++) {
       // Set position based on tile index
       const x = (i % kTilemapWidth);
       const y = Math.floor(i / kTilemapWidth);
 
-      tileMapData[i * offset] = x; // x position
-      tileMapData[i * offset + 1] = y; // y position
+      tileMapData[i * offset] = x * kTileSize; // x position
+      tileMapData[i * offset + 1] = y * kTileSize; // y position
       tileMapData[i * offset + 2] = 0; //texture offset x
       tileMapData[i * offset + 3] = 0; //texture offset y
     }
@@ -454,19 +487,58 @@ class Renderer {
 
     Camera2D.instance.transform.scale = [this.baseScale, this.baseScale];
 
-    const viewMatrix = Camera2D.instance.computeViewMatrix();
+    const canvasTexture = this.context.getCurrentTexture();
+
+    //@ts-ignore
+    renderPassDescriptor.colorAttachments[0].view = canvasTexture.createView();
+    const depthTexture = this.depthTexture;
+    // If we don't have a depth texture OR if its size is different
+    // from the canvasTexture when make a new depth texture
+    if (!depthTexture ||
+      depthTexture.width !== canvasTexture.width ||
+      depthTexture.height !== canvasTexture.height) {
+      if (depthTexture) {
+        depthTexture.destroy();
+      }
+      this.depthTexture = device.createTexture({
+        size: [canvasTexture.width, canvasTexture.height],
+        format: 'depth24plus',
+        usage: GPUTextureUsage.RENDER_ATTACHMENT,
+      });
+    }
+
+    //@ts-ignore
+    renderPassDescriptor.depthStencilAttachment.view = this.depthTexture?.createView();
+
     const pass = encoder.beginRenderPass(renderPassDescriptor);
-
-    this.drawTileMap(pass, device, viewMatrix);
-
     const uniformBuffer = this.uniformBuffer;
     const renderPipeline = this.renderPipeline;
     const uniformValues = this.uniformValues;
+    const canvas = this.context?.canvas as HTMLCanvasElement;
+
+    const view = new Matrix4x4().translate([canvas.clientWidth / 2, -canvas.clientHeight / 2, 0]);
+    const proj = new Matrix4x4()
+      .orthographic(
+        0,                   // left
+        canvas.clientWidth,  // right
+        -canvas.clientHeight, // bottom
+        0,                   // top
+        400,                 // near
+        -400,                // far
+      ) as Matrix4x4;
+
+    this.drawTileMap(pass, device, view, proj);
 
     //scuffed
     systems.forEach(system => {
+      if (!system.render)
+        return;
+
       system.render(this, (matrix) => {
-        matrix.multiply(viewMatrix);
+        matrix
+          .multiply(view)
+          .multiply(proj);
+
         this.uniform_Matrix.set(matrix);
 
         // upload the uniform values to the uniform buffer
@@ -487,14 +559,16 @@ class Renderer {
     device.queue.submit([commandBuffer]);
   }
 
-  drawTileMap(pass: GPURenderPassEncoder, device: GPUDevice, viewMatrix: Matrix3x3) {
+  drawTileMap(pass: GPURenderPassEncoder, device: GPUDevice, view: Matrix4x4, proj: Matrix4x4) {
     if (this.tileMapPipeline && this.tileMapBindGroup && this.tileMapBuffer && this.tileMapValues && this.tileMapUniformValues && this.tileMapUniformsBuffer) {
       // upload the uniform values to the uniform buffer
       device.queue.writeBuffer(this.tileMapBuffer, 0, this.tileMapValues);
 
-      const matrix = Matrix3x3.identity();
-      matrix.translate([-kTilemapWidth / 2 + 0.5, -kTilemapHeight / 2 + 0.5]); //center the tilemap
-      matrix.multiply(viewMatrix);
+      const matrix = new Matrix4x4();
+      matrix
+        .translate([-kTilemapWidth / 2 * kTileSize, -kTilemapHeight / 2 * kTileSize, 0])
+        .multiply(view)
+        .multiply(proj);
 
       this.tileMapMatrixValue.set(matrix);
       device.queue.writeBuffer(this.tileMapUniformsBuffer, 0, this.tileMapUniformValues);

@@ -1,4 +1,5 @@
 import { Sprite } from "../behaviours/sprite.behaviour";
+import { Constants } from "./constants";
 import { Renderer } from "./renderer";
 
 class Tile {
@@ -45,8 +46,8 @@ class TileMap {
   }
 }
 
-const kTileSize = 64;
-const kTileMapInitialWidth = 16;
-const kTileMapInitialHeight = 8;
+const kTileSize = Constants.UnitSize;
+const kTileMapInitialWidth = 32;
+const kTileMapInitialHeight = 32;
 
 export { kTileMapInitialHeight as kTilemapHeight, kTileMapInitialWidth as kTilemapWidth, kTileSize, Tile, TileDescriptor, TileFlags, TileMap, TileType };

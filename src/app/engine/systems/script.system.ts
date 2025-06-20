@@ -1,7 +1,7 @@
 import { BehaviourType, GameBehaviour } from "../core/game.behaviour";
 import { GameObject } from "../core/game.object";
 import { GameSystem } from "../core/game.system";
-import { Matrix3x3 } from "../core/matrix";
+import { Matrix3x3, Matrix4x4 } from "../core/matrix";
 import { Renderer } from "../core/renderer";
 import { ScriptBehaviour } from "../behaviours/script.behaviour";
 
@@ -24,10 +24,6 @@ class ScriptSystem extends GameSystem {
         for (const behaviour of this.behaviours) {
             behaviour.update();
         }
-    }
-
-    render(renderer: Renderer, drawFn: (matrix: Matrix3x3) => void) {
-        return;
     }
 
     newBehaviour(gameObject: GameObject): GameBehaviour {
