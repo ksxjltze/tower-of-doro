@@ -7,6 +7,7 @@ import { BehaviourType } from '../engine/core/game.behaviour';
 import { SpriteSystem } from '../engine/systems/sprite.system';
 import { Vector2 } from '../engine/core/vector';
 import { EditorRuntime } from '../engine/runtime/editor.runtime';
+import { Camera } from '../engine/core/camera2d';
 
 @Component({
   selector: 'app-editor',
@@ -42,12 +43,16 @@ export class EditorComponent {
       return;
 
     const mousePos = new Vector2(event.offsetX, event.offsetY);
+    const camera = Camera.instance;
 
     const tileMapOffsetX = kTilemapWidth / 2 * kTileSize;
     const tileMapOffsetY = kTilemapHeight / 2 * kTileSize;
 
-    const x = (mousePos.x - canvas.clientWidth / 2 + tileMapOffsetX);
-    const y = (mousePos.y - canvas.clientHeight / 2 - tileMapOffsetY);
+    const cameraOffsetX = camera.transform.position.x;
+    const cameraOffsetY = -camera.transform.position.y;
+
+    const x = (mousePos.x - cameraOffsetX + tileMapOffsetX);
+    const y = (mousePos.y - cameraOffsetY - tileMapOffsetY);
 
     const i = x / kTileSize + 0.5;
     const j = y / kTileSize - 0.5;
