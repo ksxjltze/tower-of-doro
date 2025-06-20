@@ -250,6 +250,10 @@ class Matrix4x4 extends Float32Array {
     return this.multiply(Matrix4x4.ortho(left, right, bottom, top, near, far));
   }
 
+  inverse() {
+    return Matrix4x4.inverse(this);
+  }
+
   static translation([tx, ty, tz]: [number, number, number], dst: Matrix4x4 | null = null) {
     dst = dst || new Matrix4x4();
     dst[0] = 1; dst[1] = 0; dst[2] = 0; dst[3] = 0;
@@ -409,7 +413,7 @@ class Matrix4x4 extends Float32Array {
     return dst as Matrix4x4;
   }
 
-  static inverse(m: Matrix4x4, dst: Matrix4x4) {
+  static inverse(m: Matrix4x4, dst: Float32Array | null = null): Matrix4x4 {
     dst = dst || new Float32Array(16);
 
     const m00 = m[0 * 4 + 0];
@@ -497,7 +501,7 @@ class Matrix4x4 extends Float32Array {
     dst[15] = d * ((tmp22 * m22 + tmp16 * m02 + tmp21 * m12) -
       (tmp20 * m12 + tmp23 * m22 + tmp17 * m02));
 
-    return dst;
+    return dst as Matrix4x4;
   }
 }
 

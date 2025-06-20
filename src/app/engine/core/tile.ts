@@ -41,7 +41,6 @@ class TileMap {
 
   setTile([x, y]: [number, number], tileDescriptor: TileDescriptor) {
     const textureOffsetX = tileDescriptor.id / this.descriptors.length;
-
     Renderer.instance.setTile([x, y], [textureOffsetX, 0]);
   }
 }

@@ -1,5 +1,6 @@
 import { ScriptBehaviour } from "../behaviours/script.behaviour";
 import { SpriteBehaviour } from "../behaviours/sprite.behaviour";
+import { Constants } from "../core/constants";
 import { BehaviourType } from "../core/game.behaviour";
 import { GameObject } from "../core/game.object";
 import { GameSystem } from "../core/game.system";
@@ -57,7 +58,7 @@ class PlayerScript extends ScriptBehaviour {
         if (!this.gameObject)
             return;
 
-        const speed = 64;
+        const speed = Constants.UnitSize * 3;
         const moveAmount = speed * Time.deltaTime;
 
         let moveX = 0;

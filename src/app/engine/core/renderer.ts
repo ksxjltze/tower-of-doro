@@ -42,7 +42,7 @@ class Renderer {
   tileMapMatrixValue: Float32Array = new Float32Array(24);
   tileMapColor: Float32Array = new Float32Array(4);
   tileOffset: number;
-  tileMapMatrix: Matrix3x3 = new Matrix3x3();
+  tileMapMatrix: Matrix4x4 = new Matrix4x4();
 
   // Uniform values
   uniform_Matrix: Float32Array = new Float32Array();
@@ -386,8 +386,8 @@ class Renderer {
     this.tileMapColor = tileMapColorValue;
     this.tileMapMatrixValue = tileMapMatrixValue;
 
-    const tileByteSize = 4;
-    const tileMapBufferLength = kTilemapWidth * kTilemapHeight * tileByteSize;
+    const tileFloatCount = 4;
+    const tileMapBufferLength = kTilemapWidth * kTilemapHeight * tileFloatCount;
     const tileMapBufferSize = tileMapBufferLength * Float32Array.BYTES_PER_ELEMENT;
     this.tileMapBuffer = device.createBuffer({
       label: 'tilemap buffer',
@@ -395,7 +395,7 @@ class Renderer {
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
     });
 
-    const offset = tileByteSize;
+    const offset = tileFloatCount;
     const data = new ArrayBuffer(tileMapBufferSize);
     const tileMapData = new Float32Array(data);
 
@@ -441,12 +441,10 @@ class Renderer {
     const i = y * kTilemapWidth + x;
     const tileMapData = this.tileMapValues as Float32Array;
 
-    tileMapData[i * this.tileOffset] = x; // x position
-    tileMapData[i * this.tileOffset + 1] = y; // y position
-    tileMapData[i * this.tileOffset + 2] = textureX; //texture offset x
+    tileMapData[i * this.tileOffset] = x * kTileSize; // x position
+    tileMapData[i * this.tileOffset + 1] = y * kTileSize; // y position
+    tileMapData[i * this.tileOffset + 2] = 0.5;
     tileMapData[i * this.tileOffset + 3] = textureY; //texture offset y
-
-    console.log(i, x, y);
   }
 
   updateTileMap(tileMapData: Float32Array, offset: number) {
@@ -571,6 +569,8 @@ class Renderer {
         .multiply(proj);
 
       this.tileMapMatrixValue.set(matrix);
+      this.tileMapMatrix = matrix;
+
       device.queue.writeBuffer(this.tileMapUniformsBuffer, 0, this.tileMapUniformValues);
 
       pass.setPipeline(this.tileMapPipeline);

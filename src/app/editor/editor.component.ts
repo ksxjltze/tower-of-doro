@@ -6,6 +6,7 @@ import { GameSystem } from '../engine/core/game.system';
 import { BehaviourType } from '../engine/core/game.behaviour';
 import { SpriteSystem } from '../engine/systems/sprite.system';
 import { Vector2 } from '../engine/core/vector';
+import { Matrix4x4 } from '../engine/core/matrix';
 
 @Component({
   selector: 'app-editor',
@@ -31,19 +32,19 @@ export class EditorComponent {
     if (!this.selectedTile)
       return;
 
-    console.log("Offset X, Offset Y:",event.offsetX, event.offsetY);
+    const canvas = this.runtime.renderer.context?.canvas as HTMLCanvasElement;
+    if (!canvas)
+      return;
 
     const mousePos = new Vector2(event.offsetX, event.offsetY);
-    const values = mousePos.applyMatrix(this.runtime.renderer.tileMapMatrix);
 
-    console.log(values);
+    const x = (mousePos.x - canvas.clientWidth / 2 + kTilemapWidth / 2 * kTileSize);
+    const y = (mousePos.y - canvas.clientHeight / 2 - kTilemapHeight / 2 * kTileSize);
 
-    // const x = Math.max(0, Math.ceil(event.offsetX / kTileSize) - 1);
-    // const y = Math.max(0, kTilemapHeight - Math.ceil(event.offsetY / kTileSize));
+    const i = x / kTileSize + 0.5;
+    const j = y / kTileSize - 0.5;
 
-    // console.log("X, Y:", x, y);
-
-    // this.tileMap.setTile([x, y], this.selectedTile);
+    this.tileMap.setTile([Math.floor(i), Math.floor(-j)], this.selectedTile);
   }
 
   async CreateTileDescriptors() {
