@@ -90,7 +90,7 @@ class PlayerScript extends ScriptBehaviour {
             this.idleSprite.sprite.texture!.changed = true;
         }
 
-        this.gameObject.transform.position.Add(velocity.Multiply(moveAmount));
+        this.gameObject.transform.position = this.gameObject.transform.position.add(velocity.Multiply(moveAmount));
     }
 }
 

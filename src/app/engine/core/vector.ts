@@ -13,11 +13,19 @@ class Vector2 {
     return new Vector2(arr[0], arr[1]);
   }
 
+  toArray3(): [number, number, number] {
+    return [this.x, this.y, 0];
+  }
+
   Multiply(amount: number) {
     this.x *= amount;
     this.y *= amount;
 
     return this;
+  }
+
+  subtract(other: Vector2) {
+    return new Vector2(this.x - other.x, this.y - other.y);
   }
 
   applyMatrix(matrix: Matrix3x3) {
@@ -53,11 +61,8 @@ class Vector2 {
     return this;
   }
 
-  Add(other: Vector2) {
-    this.x += other.x;
-    this.y += other.y;
-
-    return this;
+  add(other: Vector2) {
+    return new Vector2(this.x + other.x, this.y + other.y);
   }
 }
 

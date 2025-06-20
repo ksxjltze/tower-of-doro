@@ -254,6 +254,10 @@ class Matrix4x4 extends Float32Array {
     return Matrix4x4.inverse(this);
   }
 
+  rotateZ(angleInRadians: number) {
+    return this.multiply(Matrix4x4.rotationZ(angleInRadians));
+  }
+
   static translation([tx, ty, tz]: [number, number, number], dst: Matrix4x4 | null = null) {
     dst = dst || new Matrix4x4();
     dst[0] = 1; dst[1] = 0; dst[2] = 0; dst[3] = 0;
@@ -285,7 +289,7 @@ class Matrix4x4 extends Float32Array {
     return dst;
   }
 
-  static rotationZ(angleInRadians: number, dst: Matrix4x4) {
+  static rotationZ(angleInRadians: number, dst: Matrix4x4 | null = null) {
     const c = Math.cos(angleInRadians);
     const s = Math.sin(angleInRadians);
     dst = dst || new Matrix4x4();

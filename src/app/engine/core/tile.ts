@@ -47,10 +47,26 @@ class TileMap {
   getTiles() {
     return Renderer.instance.tileMapValues;
   }
+
+  loadFromLocalStorage() {
+    const tileMapDataStr = localStorage.getItem(kTileMapStorageKey);
+    if (tileMapDataStr) {
+      const length = Object.keys(JSON.parse(tileMapDataStr)).length;
+      const tileMapData = new Float32Array(length);
+
+      JSON.parse(tileMapDataStr, (index, value) => {
+        const i = Number.parseInt(index);
+        tileMapData[i] = value;
+      });
+      
+      Renderer.instance.updateTileMap(tileMapData);
+    }
+  }
 }
 
 const kTileSize = Constants.UnitSize;
 const kTileMapInitialWidth = 32;
 const kTileMapInitialHeight = 32;
+const kTileMapStorageKey = "tilemap";
 
 export { kTileMapInitialHeight as kTilemapHeight, kTileMapInitialWidth as kTilemapWidth, kTileSize, Tile, TileDescriptor, TileFlags, TileMap, TileType };

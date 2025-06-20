@@ -1,13 +1,13 @@
 <section id="editor" class="flex flex-row w-screen h-screen">
     <div id="tile-map-panel" class="border-4 border-white rounded-md m-2 bg-transparent absolute">
         <div class="grid bg-black">
-            @for (tileDescriptor of tileMap.descriptors; track $index) {
+            @for (tileDescriptor of runtime.tileMap.descriptors; track $index) {
                 <img class="hover:opacity-80" (click)="selectTile(tileDescriptor)" src="{{tileDescriptor.sprite.texture?.src}}"/>
             }
         </div>
     </div>
-    <div (click)="onSaveButtonClick()">
-        <button id="saveTileMapButton" class="absolute right-8 top-4 bg-white rounded-md px-4 py-2">Save</button>
+    <div class="bg-white hover:bg-gray-300 w-fit h-fit absolute right-8 top-4 rounded-md" (click)="onSaveButtonClick()">
+        <button id="saveTileMapButton" class="hover:text-blue-900 px-4 py-2">Save</button>
     </div>
     <div class="scene-view flex w-full h-full">
         <canvas (click)="handleCanvasClick($event)" class="w-full h-full grow" id="gameCanvas"></canvas>

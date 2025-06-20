@@ -1,10 +1,11 @@
 import { Matrix3x3, Matrix4x4 } from './matrix';
 import { kTileSize, kTilemapWidth, kTilemapHeight } from './tile';
 import { shaders, tilemapShader, pickingShader } from './shaders';
-import { Camera2D } from './camera2d';
+import { Camera, Camera2D } from './camera2d';
 import { Resources } from './resources';
 import { GameSystem } from './game.system';
 import { Constants } from './constants';
+import { Vector2 } from './vector';
 
 enum PipelineType {
   Sprite,
@@ -52,6 +53,7 @@ class Renderer {
 
   //camera?
   baseScale = 1 / 4;
+  camera: Camera2D = new Camera2D();
 
   constructor() {
     this.tileOffset = 0;
@@ -174,8 +176,8 @@ class Renderer {
         canvas.width = Math.max(1, Math.min(width, this.device.limits.maxTextureDimension2D));
         canvas.height = Math.max(1, Math.min(height, this.device.limits.maxTextureDimension2D));
 
-        Camera2D.instance.aspectRatio = canvas.width / canvas.height;
-        Camera2D.instance.updateResolutionScale(canvas.width, canvas.height);
+        Camera.instance.aspectRatio = canvas.width / canvas.height;
+        Camera.instance.updateResolutionScale(canvas.width, canvas.height);
       }
 
     });
@@ -501,8 +503,6 @@ class Renderer {
       label: 'render quad encoder',
     });
 
-    Camera2D.instance.transform.scale = [this.baseScale, this.baseScale];
-
     const canvasTexture = this.context.getCurrentTexture();
 
     //@ts-ignore
@@ -532,7 +532,8 @@ class Renderer {
     const uniformValues = this.uniformValues;
     const canvas = this.context?.canvas as HTMLCanvasElement;
 
-    const view = new Matrix4x4().translate([canvas.clientWidth / 2, -canvas.clientHeight / 2, 0]);
+    const camera = Camera.instance;
+    const view = camera.computeViewMatrix();
     const proj = new Matrix4x4()
       .orthographic(
         0,                   // left
