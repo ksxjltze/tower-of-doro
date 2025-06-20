@@ -43,6 +43,10 @@ class TileMap {
     const textureOffsetX = tileDescriptor.id / this.descriptors.length;
     Renderer.instance.setTile([x, y], [textureOffsetX, 0]);
   }
+
+  getTiles() {
+    return Renderer.instance.tileMapValues;
+  }
 }
 
 const kTileSize = Constants.UnitSize;

@@ -400,7 +400,9 @@ class Renderer {
     const tileMapData = new Float32Array(data);
 
     this.tileOffset = offset;
-    this.updateTileMap(tileMapData, offset);
+    this.tileMapValues = tileMapData;
+
+    this.initTileMap();
 
     //textures
     const tileTextures = await Resources.loadTileSheet(device);
@@ -415,7 +417,6 @@ class Renderer {
       mipmapFilter: 'nearest',
     });
 
-    this.tileMapValues = tileMapData;
     const tilemapBindGroupLayout = this.tileMapPipeline.getBindGroupLayout(0);
     const tileMapBindGroup = device.createBindGroup({
       label: 'bind group for tilemap',
@@ -443,23 +444,40 @@ class Renderer {
 
     tileMapData[i * this.tileOffset] = x * kTileSize; // x position
     tileMapData[i * this.tileOffset + 1] = y * kTileSize; // y position
-    tileMapData[i * this.tileOffset + 2] = 0.5;
+    tileMapData[i * this.tileOffset + 2] = textureX;
     tileMapData[i * this.tileOffset + 3] = textureY; //texture offset y
   }
 
-  updateTileMap(tileMapData: Float32Array, offset: number) {
+  updateTileMap(data: Float32Array) {
     if (!this.context)
       return;
+
+    const tileMapData = this.tileMapValues as Float32Array;
+    for (let i = 0; i < data.length; ++i) {
+      const tileIndex = i * this.tileOffset;
+
+      tileMapData[tileIndex] = data[tileIndex];
+      tileMapData[tileIndex + 1] = data[tileIndex + 1];
+      tileMapData[tileIndex + 2] = data[tileIndex + 2];
+      tileMapData[tileIndex + 3] = data[tileIndex + 3];
+    }
+  }
+
+  initTileMap() {
+    if (!this.context)
+      return;
+
+    const tileMapData = this.tileMapValues as Float32Array;
 
     for (let i = 0; i < kTilemapWidth * kTilemapHeight; i++) {
       // Set position based on tile index
       const x = (i % kTilemapWidth);
       const y = Math.floor(i / kTilemapWidth);
 
-      tileMapData[i * offset] = x * kTileSize; // x position
-      tileMapData[i * offset + 1] = y * kTileSize; // y position
-      tileMapData[i * offset + 2] = 0; //texture offset x
-      tileMapData[i * offset + 3] = 0; //texture offset y
+      tileMapData[i * this.tileOffset] = x * kTileSize; // x position
+      tileMapData[i * this.tileOffset + 1] = y * kTileSize; // y position
+      tileMapData[i * this.tileOffset + 2] = 0; //texture offset x
+      tileMapData[i * this.tileOffset + 3] = 0; //texture offset y
     }
   }
 

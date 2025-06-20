@@ -28,6 +28,13 @@ export class EditorComponent {
     this.selectedTile = tileDescriptor;
   }
 
+  onSaveButtonClick() {
+    const str = JSON.stringify(this.tileMap.getTiles());
+    // var dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(str);
+
+    localStorage.setItem("tilemap", str);
+  }
+
   handleCanvasClick(event: MouseEvent) {
     if (!this.selectedTile)
       return;
@@ -70,6 +77,18 @@ export class EditorComponent {
       const spriteSystem = new SpriteSystem(); //kek
       this.CreateTileDescriptors()
         .then();
+
+      const tileMapDataStr = localStorage.getItem("tilemap");
+      if (tileMapDataStr) {
+        const length = Object.keys(JSON.parse(tileMapDataStr)).length;
+        const tileMapData = new Float32Array(length);
+
+        JSON.parse(tileMapDataStr, (index, value) => {
+          const i = Number.parseInt(index);
+          tileMapData[i] = value;
+        });
+        this.runtime.renderer.updateTileMap(tileMapData);
+      }
 
       this.runtime.initialized = true;
     });
