@@ -1,6 +1,6 @@
 import { Component } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
-import { GameComponent } from "./game/game.component";
+import { SupabaseService } from './supabase.service';
 
 @Component({
   selector: 'app-root',

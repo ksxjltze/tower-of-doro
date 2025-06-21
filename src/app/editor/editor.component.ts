@@ -1,10 +1,5 @@
 import { Component } from '@angular/core';
-import { Runtime } from '../engine/runtime/runtime';
-import { kTileSize, kTilemapWidth, kTilemapHeight, TileDescriptor, TileMap, TileType } from '../engine/core/tile';
-import { Sprite } from '../engine/behaviours/sprite.behaviour';
-import { GameSystem } from '../engine/core/game.system';
-import { BehaviourType } from '../engine/core/game.behaviour';
-import { SpriteSystem } from '../engine/systems/sprite.system';
+import { kTileSize, kTilemapWidth, kTilemapHeight, TileDescriptor } from '../engine/core/tile';
 import { Vector2 } from '../engine/core/vector';
 import { EditorRuntime } from '../engine/runtime/editor.runtime';
 import { Camera } from '../engine/core/camera2d';
