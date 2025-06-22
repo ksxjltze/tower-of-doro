@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component } from '@angular/core';
 import { kTileSize, kTilemapWidth, kTilemapHeight, TileDescriptor } from '../engine/core/tile';
 import { Vector2 } from '../engine/core/vector';
 import { EditorRuntime } from '../engine/runtime/editor.runtime';
@@ -8,13 +8,14 @@ import { Camera } from '../engine/core/camera2d';
   selector: 'app-editor',
   imports: [],
   templateUrl: './editor.component.html',
-  styleUrl: './editor.component.css'
+  styleUrl: './editor.component.css',
+  changeDetection: ChangeDetectionStrategy.Default
 })
 export class EditorComponent {
   runtime: EditorRuntime;
   selectedTile: TileDescriptor | null = null;
 
-  constructor() {
+  constructor(private ref: ChangeDetectorRef) {
     this.runtime = new EditorRuntime();
   }
 
@@ -58,5 +59,7 @@ export class EditorComponent {
   async ngOnInit() {
     console.log("EditorComponent initialized");
     await this.runtime.init();
+
+    this.ref.markForCheck();
   }
 }
