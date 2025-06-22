@@ -30,7 +30,7 @@ class GameRuntime extends Runtime {
         Input.setupInput();
     }
 
-    override init() {
+    override async init() {
         const scriptSystem = GameSystem.GetSystem<ScriptSystem>(BehaviourType.Script);
 
         super.init(

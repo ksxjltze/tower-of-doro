@@ -16,27 +16,22 @@ class Runtime {
         this.renderer = new Renderer();
     }
 
-    init(onInit: CallableFunction | undefined = undefined,
+    async init(onInit: CallableFunction | undefined = undefined,
         renderCallback: FrameRequestCallback | undefined = undefined) {
         if (!renderCallback)
             renderCallback = this.render;
 
-        this.renderer.initWebGPU()
-            .then(() => {
-                if (onInit)
-                    onInit();
+        await this.renderer.initWebGPU();
+        if (onInit)
+            await onInit();
 
-                //temp
-                const canvas = this.renderer.context?.canvas as HTMLCanvasElement;
-                const camera = Camera.instance;
-                camera.transform.position = new Vector2(canvas.clientWidth / 2, -canvas.clientHeight / 2);
+        //temp
+        const canvas = this.renderer.context?.canvas as HTMLCanvasElement;
+        const camera = Camera.instance;
+        camera.transform.position = new Vector2(canvas.clientWidth / 2, -canvas.clientHeight / 2);
 
-                this.initialized = true;
-                requestAnimationFrame(renderCallback.bind(this));
-            })
-            .catch((error: any) => {
-                console.error("Error initializing WebGPU:", error);
-            });
+        this.initialized = true;
+        requestAnimationFrame(renderCallback.bind(this));
     }
 
     render() {

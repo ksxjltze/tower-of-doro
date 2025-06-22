@@ -12,7 +12,6 @@ import { environment } from '../environments/environment'
 export interface Profile {
   id?: string
   username: string
-  website: string
   avatar_url: string
 }
 
@@ -37,7 +36,7 @@ export class SupabaseService {
   profile(user: User) {
     return this.supabase
       .from('profiles')
-      .select(`username, website, avatar_url`)
+      .select(`username, avatar_url`)
       .eq('id', user.id)
       .single()
   }

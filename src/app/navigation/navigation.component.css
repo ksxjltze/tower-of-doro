@@ -1,0 +1,13 @@
+:host {
+    width: 100%;
+}
+
+.nav-item {
+    border-radius: 8px;
+    padding: 0.5rem;
+    min-width: 6rem;
+    text-align: center;
+
+    filter: drop-shadow(2px 1px 1px gray);
+    background: linear-gradient(175deg, gray, rgba(1, 1, 1, 0.5));
+}

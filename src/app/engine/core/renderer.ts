@@ -88,8 +88,9 @@ class Renderer {
       throw Error("Couldn't get WebGPU context from canvas.");
     }
 
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+    //magically, this fixes a lot of overflow issues
+    canvas.width = 0;
+    canvas.height = 0;
 
     this.context.configure({
       device: device,
@@ -173,8 +174,14 @@ class Renderer {
         const width = entry.contentBoxSize[0].inlineSize;
         const height = entry.contentBoxSize[0].blockSize;
 
-        canvas.width = Math.max(1, Math.min(width, this.device.limits.maxTextureDimension2D));
-        canvas.height = Math.max(1, Math.min(height, this.device.limits.maxTextureDimension2D));
+        if (width == 0 || height == 0) {
+          canvas.width = window.innerWidth;
+          canvas.height = window.innerHeight;
+        }
+        else {
+          canvas.width = Math.max(1, Math.min(width, this.device.limits.maxTextureDimension2D));
+          canvas.height = Math.max(1, Math.min(height, this.device.limits.maxTextureDimension2D));
+        }
 
         Camera.instance.aspectRatio = canvas.width / canvas.height;
         Camera.instance.updateResolutionScale(canvas.width, canvas.height);

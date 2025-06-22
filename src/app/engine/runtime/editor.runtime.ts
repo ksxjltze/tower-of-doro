@@ -42,7 +42,7 @@ class EditorRuntime extends Runtime {
 
             const panMovement = Input.mousePos.subtract(this.initialPos);
             panMovement.y = - panMovement.y;
-            
+
             camera.transform.position = this.cameraPos.add(panMovement);
         }
         else if (Input.GetMouseButtonUp(Input.MouseButton.Middle)) {
@@ -61,15 +61,15 @@ class EditorRuntime extends Runtime {
         requestAnimationFrame(this.runGameLoop.bind(this));
     }
 
-    override init() {
-        super.init(() => {
+    override async init() {
+        const init = async () => {
             const spriteSystem = new SpriteSystem();
-            this.CreateTileDescriptors()
-                .then();
-
             this.tileMap.loadFromLocalStorage();
-            this.initialized = true;
-        }, this.runEditorLoop)
+
+            await this.CreateTileDescriptors();
+        };
+
+        await super.init(init.bind(this), this.runEditorLoop)
     }
 
     runEditorLoop(timestamp?: DOMHighResTimeStamp) {

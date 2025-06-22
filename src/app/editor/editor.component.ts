@@ -55,8 +55,8 @@ export class EditorComponent {
     this.runtime.tileMap.setTile([Math.floor(i), Math.floor(-j)], this.selectedTile);
   }
 
-  ngOnInit() {
+  async ngOnInit() {
     console.log("EditorComponent initialized");
-    this.runtime.init();
+    await this.runtime.init();
   }
 }

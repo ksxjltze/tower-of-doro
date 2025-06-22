@@ -1,13 +1,9 @@
 /* You can add global styles to this file, and also import other style files */
 @import "tailwindcss";
 
-html,
-body {
-    height: 100%;
-}
-
 body {
     margin: 0;
+    padding: 0;
     font-family: Roboto, "Helvetica Neue", sans-serif;
 }
 
@@ -25,10 +21,9 @@ body {
     --custom-border-radius: 5px;
     --custom-spacing: 5px;
 
-    padding: 0;
-    margin: 0;
     font-family: var(--custom-font-family);
     background-color: var(--custom-bg-color);
+    height: 100%;
 }
 
 * {
@@ -37,13 +32,6 @@ body {
     box-sizing: border-box;
 }
 
-html,
-body,
-#__next {
-    height: 100vh;
-    width: 100vw;
-    overflow-x: hidden;
-}
 
 /* Grid */
 

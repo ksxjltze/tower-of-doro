@@ -26,7 +26,6 @@ export class AccountComponent implements OnInit {
 
     this.updateProfileForm = this.formBuilder.group({
       username: '',
-      website: '',
       avatar_url: '',
     })
 
@@ -38,10 +37,9 @@ export class AccountComponent implements OnInit {
     if (!this.profile)
       return;
 
-    const { username, website, avatar_url } = this.profile;
+    const { username, avatar_url } = this.profile;
     this.updateProfileForm.patchValue({
       username,
-      website,
       avatar_url,
     })
   }
@@ -80,13 +78,11 @@ export class AccountComponent implements OnInit {
       const { user } = this.session
 
       const username = this.updateProfileForm.value.username as string
-      const website = this.updateProfileForm.value.website as string
       const avatar_url = this.updateProfileForm.value.avatar_url as string
 
       const { error } = await this.supabase.updateProfile({
         id: user.id,
         username,
-        website,
         avatar_url,
       })
       if (error) throw error
