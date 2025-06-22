@@ -1,0 +1,13 @@
+<div>
+    <h1 *ngIf="_showText" class="mb-2 font-bold text-xl">Avatar</h1>
+    <img *ngIf="_avatarUrl" [src]="_avatarUrl" alt="Avatar" class="avatar image"
+        [ngStyle]="{'width': _width, 'height': _height}" />
+</div>
+<div *ngIf="!_avatarUrl" class="avatar no-image" [ngStyle]="{'width': _width, 'height': _height}"></div>
+<div *ngIf="_uploadEnabled" style="width: 100%" class="mt-2">
+    <label class="button primary block" for="single">
+        {{ uploading ? 'Uploading ...' : 'Upload' }}
+    </label>
+    <input style="visibility: hidden;position: absolute" type="file" id="single" accept="image/*"
+        (change)="uploadAvatar($event)" [disabled]="uploading" />
+</div>

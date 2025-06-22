@@ -23,7 +23,13 @@ export class SupabaseService {
   _session: AuthSession | null = null
 
   constructor() {
-    this.supabase = createClient(environment.supabaseUrl, environment.supabaseKey)
+    this.supabase = createClient(environment.supabaseUrl, environment.supabaseKey, {
+      auth: {
+        autoRefreshToken: true,
+        persistSession: true,
+        detectSessionInUrl: true
+      }
+    })
   }
 
   get session() {
@@ -45,8 +51,43 @@ export class SupabaseService {
     return this.supabase.auth.onAuthStateChange(callback)
   }
 
-  signIn(email: string) {
+  async signUpNewUser(email: string, password: string) {
+    const { data, error } = await this.supabase.auth.signUp({
+      email: email,
+      password: password,
+      options: {
+        emailRedirectTo: '/login',
+      },
+    })
+
+    return { data, error };
+  }
+
+  async refreshSession() {
+    const response = await this.supabase.auth.refreshSession();
+
+    return response;
+  }
+
+  async signIn(email: string, password: string) {
+    const { data, error } = await this.supabase.auth.signInWithPassword({
+      email: email,
+      password: password
+    })
+
+    return { data, error };
+  }
+
+  signInOTP(email: string) {
     return this.supabase.auth.signInWithOtp({ email })
+  }
+
+  async signInOAuth() {
+    const { data, error } = await this.supabase.auth.signInWithOAuth({
+      provider: 'github'
+    })
+
+    return { data, error };
   }
 
   signOut() {

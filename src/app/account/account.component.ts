@@ -1,13 +1,14 @@
-import { Component, Input, OnInit } from '@angular/core'
+import { ChangeDetectorRef, Component, Input, OnInit } from '@angular/core'
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms'
 import { AuthSession } from '@supabase/supabase-js'
 import { Profile, SupabaseService } from '../supabase.service'
+import { AvatarComponent } from '../avatar/avatar.component'
 
 @Component({
   selector: 'app-account',
   templateUrl: './account.component.html',
   styleUrls: ['./account.component.css'],
-  imports: [ReactiveFormsModule]
+  imports: [ReactiveFormsModule, AvatarComponent]
 })
 export class AccountComponent implements OnInit {
   loading = false
@@ -19,6 +20,7 @@ export class AccountComponent implements OnInit {
 
   constructor(
     private readonly supabase: SupabaseService,
+    private readonly changeRef: ChangeDetectorRef,
     private formBuilder: FormBuilder
   ) {
     this.session = null;
@@ -31,7 +33,19 @@ export class AccountComponent implements OnInit {
 
   }
 
+  get avatarUrl() {
+    return this.updateProfileForm.value.avatar_url as string
+  }
+  async updateAvatar(event: string): Promise<void> {
+    this.updateProfileForm.patchValue({
+      avatar_url: event,
+    })
+    await this.updateProfile()
+  }
+
   async ngOnInit(): Promise<void> {
+    await this.supabase.refreshSession();
+    this.session = await this.supabase.session;
     await this.getProfile();
 
     if (!this.profile)
@@ -42,11 +56,13 @@ export class AccountComponent implements OnInit {
       username,
       avatar_url,
     })
+
+    this.changeRef.detectChanges();
   }
 
   async getProfile() {
     try {
-      this.loading = true
+      this.loading = true;
       if (!this.session)
         return;
 
@@ -91,7 +107,8 @@ export class AccountComponent implements OnInit {
         alert(error.message)
       }
     } finally {
-      this.loading = false
+      this.loading = false;
+      this.changeRef.detectChanges();
     }
   }
 
