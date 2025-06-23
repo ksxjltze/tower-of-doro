@@ -88,9 +88,8 @@ class Renderer {
       throw Error("Couldn't get WebGPU context from canvas.");
     }
 
-    //magically, this fixes a lot of overflow issues
-    canvas.width = 0;
-    canvas.height = 0;
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
 
     this.context.configure({
       device: device,
