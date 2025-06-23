@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, ChangeDetectorRef, Component } from '@angular/core';
 import { kTileSize, kTilemapWidth, kTilemapHeight, TileDescriptor } from '../engine/core/tile';
 import { Vector2 } from '../engine/core/vector';
-import { EditorRuntime } from '../engine/runtime/editor.runtime';
+import { EditorRuntime } from './editor.runtime';
 import { Camera } from '../engine/core/camera2d';
 
 @Component({

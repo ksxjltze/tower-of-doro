@@ -1,18 +1,19 @@
-import { GameObject } from "../core/game.object";
-import { Runtime } from "./runtime";
+import { GameObject } from "../engine/core/game.object";
+import { Runtime } from "../engine/runtime/runtime";
 
-import { BehaviourType } from "../core/game.behaviour";
-import { Input } from "../core/input";
+import { BehaviourType } from "../engine/core/game.behaviour";
+import { Input } from "../engine/core/input";
 
-import { GameSystem } from "../core/game.system";
-import { Time } from "../core/time";
-import { PlayerScript } from "../scripts/player.script";
-import { PlayerSystem } from "../systems/player.system";
-import { ScriptSystem } from "../systems/script.system";
-import { SpriteSystem } from "../systems/sprite.system";
+import { GameSystem } from "../engine/core/game.system";
+import { Time } from "../engine/core/time";
+import { PlayerScript } from "../engine/scripts/player.script";
+import { PlayerSystem } from "../engine/systems/player.system";
+import { ScriptSystem } from "../engine/systems/script.system";
+import { SpriteSystem } from "../engine/systems/sprite.system";
+import { DoroDriveSystem, DoroPlayer } from "./tower-of-doro";
 
 class GameRuntime extends Runtime {
-    player: GameObject;
+    player: DoroPlayer;
 
     elapsedTime = 0;
     lastTimestamp: DOMHighResTimeStamp | null = null;
@@ -24,8 +25,13 @@ class GameRuntime extends Runtime {
         this.systems.push(new ScriptSystem());
         this.systems.push(new SpriteSystem());
 
-        this.player = this.scene.AddObject(new GameObject("Player"));
-        this.player.SetBehaviour(BehaviourType.Script, new PlayerScript(this.player));
+        this.systems.push(new DoroDriveSystem());
+
+        this.player = this.scene.AddObject(new DoroPlayer("DoroZero")) as DoroPlayer;
+        this.player.SetBehaviour(BehaviourType.Script, new PlayerScript(this.player)); //temp, scuffed
+
+        const doroSystem = GameSystem.GetSystem<DoroDriveSystem>(BehaviourType.DoroDrive);
+        doroSystem.addPlayer(this.player);
 
         Input.setupInput();
     }
@@ -37,6 +43,10 @@ class GameRuntime extends Runtime {
             () => scriptSystem.start(),
             this.runGameLoop
         );
+
+        for (const system of this.systems) {
+            system.onInit();
+        }
     }
 
     update(timestamp?: DOMHighResTimeStamp) {
@@ -57,6 +67,12 @@ class GameRuntime extends Runtime {
         
         for (const system of this.systems) {
             system.update();
+        }
+    }
+
+    onDestroy() {
+        for (const system of this.systems) {
+            system.onExit();
         }
     }
 

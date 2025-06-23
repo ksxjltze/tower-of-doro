@@ -26,7 +26,7 @@ class ScriptSystem extends GameSystem {
         }
     }
 
-    newBehaviour(gameObject: GameObject): GameBehaviour {
+    override newBehaviour(gameObject: GameObject): GameBehaviour {
         const behavior = new ScriptBehaviour(gameObject);
         this.behaviours.push(behavior)
 

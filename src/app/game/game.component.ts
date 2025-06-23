@@ -1,6 +1,6 @@
 import { Component } from '@angular/core';
 import { Runtime } from '../engine/runtime/runtime';
-import { GameRuntime } from '../engine/runtime/game.runtime';
+import { GameRuntime } from './game.runtime';
 
 @Component({
   selector: 'app-game',
@@ -18,5 +18,9 @@ export class GameComponent {
   ngOnInit() {
     console.log("GameComponent initialized");
     this.runtime.init();
+  }
+
+  ngOnDestroy() {
+    this.runtime.onDestroy();
   }
 }

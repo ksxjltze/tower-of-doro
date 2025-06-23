@@ -1,4 +1,4 @@
-import { BehaviourType, GameBehaviour } from "./game.behaviour"
+import { BehaviourType, EmptyBehaviour, GameBehaviour } from "./game.behaviour"
 import { GameObject } from "./game.object";
 import { Matrix3x3, Matrix4x4 } from "./matrix";
 import { Renderer } from "./renderer";
@@ -6,7 +6,21 @@ import { Renderer } from "./renderer";
 abstract class GameSystem {
     abstract behaviours: Array<GameBehaviour>;
     abstract update(): void;
-    abstract newBehaviour(gameObject: GameObject): GameBehaviour;
+
+    onInit() {
+        
+    }
+
+    onExit(): void {
+
+    }
+
+    newBehaviour(gameObject: GameObject): GameBehaviour {
+        const behaviour = new EmptyBehaviour(gameObject);
+        this.behaviours.push(behaviour);
+
+        return behaviour;
+    }
 
     render: ((renderer: Renderer, drawFn: (matrix: Matrix4x4) => void) => void) | undefined;
     constructor() {

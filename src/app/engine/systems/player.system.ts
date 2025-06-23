@@ -19,7 +19,7 @@ class PlayerSystem extends GameSystem {
         }
     }
 
-    newBehaviour(gameObject: GameObject): GameBehaviour {
+    override newBehaviour(gameObject: GameObject): GameBehaviour {
         const behavior = new PlayerBehaviour(gameObject);
         this.behaviours.push(behavior)
 

@@ -4,7 +4,8 @@ enum BehaviourType {
     None,
     Sprite,
     Player,
-    Script
+    Script,
+    DoroDrive
 }
 
 abstract class GameBehaviour {
@@ -16,4 +17,8 @@ abstract class GameBehaviour {
     }
 }
 
-export { BehaviourType, GameBehaviour }
+class EmptyBehaviour extends GameBehaviour{
+    override type: BehaviourType = BehaviourType.None;
+}
+
+export { BehaviourType, GameBehaviour, EmptyBehaviour }

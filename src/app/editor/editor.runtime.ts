@@ -1,12 +1,12 @@
-import { Runtime } from "./runtime";
-import { Input } from "../core/input";
-import { Camera, Camera2D } from "../core/camera2d";
-import { SpriteSystem } from "../systems/sprite.system";
-import { Sprite } from "../behaviours/sprite.behaviour";
-import { GameSystem } from "../core/game.system";
-import { TileDescriptor, TileMap, TileType } from "../core/tile";
-import { BehaviourType } from "../core/game.behaviour";
-import { Vector2 } from "../core/vector";
+import { Runtime } from "../engine/runtime/runtime";
+import { Input } from "../engine/core/input";
+import { Camera, Camera2D } from "../engine/core/camera2d";
+import { SpriteSystem } from "../engine/systems/sprite.system";
+import { Sprite } from "../engine/behaviours/sprite.behaviour";
+import { GameSystem } from "../engine/core/game.system";
+import { TileDescriptor, TileMap, TileType } from "../engine/core/tile";
+import { BehaviourType } from "../engine/core/game.behaviour";
+import { Vector2 } from "../engine/core/vector";
 
 
 class EditorRuntime extends Runtime {
