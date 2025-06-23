@@ -54,6 +54,8 @@ export class AuthComponent {
       console.log(event, session);
       if (event == 'SIGNED_IN')
         this.router.navigate(['/account']);
+      
+      this.changeRef.detectChanges();
     })
   }
 }

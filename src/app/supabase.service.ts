@@ -51,6 +51,20 @@ export class SupabaseService {
     return this.supabase.auth.onAuthStateChange(callback)
   }
 
+  async resetPassword(email: string) {
+    const {data, error } = await this.supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: "/account/update-password"
+    });
+
+    return { data, error };
+  }
+
+  async updateUserPassword(password: string) {
+    const { data, error } = await this.supabase.auth.updateUser({ password: password });
+
+    return { data, error };
+  }
+
   async signUpNewUser(email: string, password: string) {
     const { data, error } = await this.supabase.auth.signUp({
       email: email,

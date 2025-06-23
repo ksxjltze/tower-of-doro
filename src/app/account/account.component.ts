@@ -36,6 +36,7 @@ export class AccountComponent implements OnInit {
   get avatarUrl() {
     return this.updateProfileForm.value.avatar_url as string
   }
+
   async updateAvatar(event: string): Promise<void> {
     this.updateProfileForm.patchValue({
       avatar_url: event,
@@ -45,7 +46,10 @@ export class AccountComponent implements OnInit {
 
   async ngOnInit(): Promise<void> {
     await this.supabase.refreshSession();
+    this.changeRef.detach();
+
     this.session = await this.supabase.session;
+
     await this.getProfile();
 
     if (!this.profile)
@@ -58,6 +62,7 @@ export class AccountComponent implements OnInit {
     })
 
     this.changeRef.detectChanges();
+    this.changeRef.reattach();
   }
 
   async getProfile() {
@@ -114,5 +119,25 @@ export class AccountComponent implements OnInit {
 
   async signOut() {
     await this.supabase.signOut()
+    this.changeRef.detectChanges();
+  }
+
+  async resetPassword() {
+    try {
+      const { data, error } = await this.supabase.resetPassword(this.session?.user.email!);
+      if (error)
+        throw error;
+      else
+        alert("Check your email!");
+
+    } catch (error) {
+      if (error instanceof Error) {
+        alert(error.message)
+      }
+    } finally {
+      this.loading = false;
+      this.changeRef.detectChanges();
+    }
+
   }
 }

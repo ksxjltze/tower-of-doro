@@ -1,7 +1,8 @@
 <section class="flex flex-row items-center content-center">
   @if (session) {
   <form [formGroup]="updateProfileForm" (ngSubmit)="updateProfile()" class="form-widget py-8 m-auto w-auto">
-    <app-avatar [doUpload]="true" [showText]="true" [avatarUrl]="this.avatarUrl" [width]="'256px'" [height]="'100%'" (upload)="updateAvatar($event)"> </app-avatar>
+    <app-avatar [doUpload]="true" [showText]="true" [avatarUrl]="this.avatarUrl" [width]="'256px'" [height]="'100%'"
+      (upload)="updateAvatar($event)"> </app-avatar>
     <div>
       <label for="email">Email</label>
       <input id="email" type="text" [value]="session!.user.email" disabled />
@@ -14,6 +15,12 @@
     <div class="mt-8">
       <button type="submit" class="button primary block" [disabled]="loading">
         {{ loading ? 'Loading ...' : 'Update' }}
+      </button>
+    </div>
+
+    <div>
+      <button  class="button block" (click)="resetPassword()" [disabled]="loading">
+        Reset Password
       </button>
     </div>
 

@@ -1,12 +1,12 @@
-<section class="w-full flex bg-stone-900 p-2">
+<section class="w-full flex bg-stone-900 p-0.5">
     <nav class="grow">
-        <ol class="flex flex-row p-4 gap-4">
+        <ol class="flex flex-row p-4 items-center gap-4">
             <a href="/"><li class="nav-item">Home</li></a>
             <a href="/login"><li class="nav-item">Account</li></a>
             <a href="/editor"><li class="nav-item">Editor</li></a>
         </ol>
     </nav>
-    <div class="flex content-center justify-center border-2 rounded-md p-1">
+    <div class="flex content-center justify-center py-1 px-0.5">
         <a href="/account"><app-avatar [avatarUrl]="profile?.avatar_url!"></app-avatar></a>
     </div>
 </section>
