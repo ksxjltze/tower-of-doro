@@ -2,7 +2,7 @@ import { Camera, Camera2D } from "../core/camera2d";
 import { GameSystem } from "../core/game.system";
 import { Renderer } from "../core/renderer";
 import { Scene } from "../core/scene";
-import { Vector2 } from "../core/vector";
+import { Vector2, Vector3 } from "../core/vector";
 import { SpriteSystem } from "../systems/sprite.system";
 
 class Runtime {
@@ -28,7 +28,7 @@ class Runtime {
         //temp
         const canvas = this.renderer.context?.canvas as HTMLCanvasElement;
         const camera = Camera.instance;
-        camera.transform.position = new Vector2(canvas.clientWidth / 2, -canvas.clientHeight / 2);
+        camera.transform.position = new Vector3(0, 0, -1);
 
         this.initialized = true;
         requestAnimationFrame(renderCallback.bind(this));

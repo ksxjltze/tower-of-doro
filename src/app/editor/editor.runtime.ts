@@ -6,15 +6,15 @@ import { Sprite } from "../engine/behaviours/sprite.behaviour";
 import { GameSystem } from "../engine/core/game.system";
 import { TileDescriptor, TileMap, TileType } from "../engine/core/tile";
 import { BehaviourType } from "../engine/core/game.behaviour";
-import { Vector2 } from "../engine/core/vector";
+import { Vector2, Vector3 } from "../engine/core/vector";
 
 
 class EditorRuntime extends Runtime {
     tileMap: TileMap;
 
     panning: boolean = false;
-    initialPos: Vector2 = new Vector2();
-    cameraPos: Vector2 = new Vector2();
+    initialPos: Vector3 = new Vector3();
+    cameraPos: Vector3 = new Vector3();
 
     constructor() {
         super();
@@ -26,21 +26,22 @@ class EditorRuntime extends Runtime {
     update(timestamp?: DOMHighResTimeStamp) {
         // Update input state for the current frame
         Input.frameKeyMap.clear();
+        const mousePos = new Vector3(Input.mousePos.x, Input.mousePos.y, 0);
 
         //PAN
         if (Input.GetMouseButtonDown(Input.MouseButton.Middle)) {
             const camera = Camera.instance;
 
             if (!this.panning) {
-                this.cameraPos = new Vector2(
+                this.cameraPos = new Vector3(
                     camera.transform.position.x,
                     camera.transform.position.y);
 
-                this.initialPos = Input.mousePos;
+                this.initialPos = mousePos;
                 this.panning = true;
             }
 
-            const panMovement = Input.mousePos.subtract(this.initialPos);
+            const panMovement = mousePos.subtract(this.initialPos);
             panMovement.y = - panMovement.y;
 
             camera.transform.position = this.cameraPos.add(panMovement);

@@ -66,4 +66,20 @@ class Vector2 {
   }
 }
 
-export { Vector2 };
+class Vector3 {
+  constructor(
+    public x: number = 0,
+    public y: number = 0,
+    public z: number = 0,
+  ) { }
+
+  add(other: Vector3) {
+    return new Vector3(this.x + other.x, this.y + other.y, this.z + other.z);
+  }
+
+  subtract(other: Vector3) {
+    return new Vector3(this.x - other.x, this.y - other.y, this.z - other.z);
+  }
+}
+
+export { Vector2, Vector3};

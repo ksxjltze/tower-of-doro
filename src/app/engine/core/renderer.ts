@@ -98,14 +98,24 @@ class Renderer {
     });
 
     const spriteSize = Constants.UnitSize / 2;
-    const vertices: Float32Array = new Float32Array([
-      -spriteSize, -spriteSize, 0.0, 0.0,  // bottom left
-      spriteSize, -spriteSize, 1.0, 0.0,  // bottom right
-      -spriteSize, spriteSize, 0.0, 1.0,  // top left
+    // const vertices: Float32Array = new Float32Array([
+    //   -spriteSize, -spriteSize, 0.0, 0.0,  // bottom left
+    //   spriteSize, -spriteSize, 1.0, 0.0,  // bottom right
+    //   -spriteSize, spriteSize, 0.0, 1.0,  // top left
 
-      -spriteSize, spriteSize, 0.0, 1.0,  // top left
-      spriteSize, -spriteSize, 1.0, 0.0,  // bottom right
-      spriteSize, spriteSize, 1.0, 1.0,  // top right
+    //   -spriteSize, spriteSize, 0.0, 1.0,  // top left
+    //   spriteSize, -spriteSize, 1.0, 0.0,  // bottom right
+    //   spriteSize, spriteSize, 1.0, 1.0,  // top right
+    // ]);
+
+    const vertices: Float32Array = new Float32Array([
+      -0.5, -0.5, 0.0, 0.0,  // bottom left
+      0.5, -0.5, 1.0, 0.0,  // bottom right
+      -0.5, 0.5, 0.0, 1.0,  // top left
+
+      -0.5, 0.5, 0.0, 1.0,  // top left
+      0.5, -0.5, 1.0, 0.0,  // bottom right
+      0.5, 0.5, 1.0, 1.0,  // top right
     ]);
 
     this.vertexBuffer = device.createBuffer({
@@ -541,16 +551,14 @@ class Renderer {
     const camera = Camera.instance;
     const view = camera.computeViewMatrix();
     const proj = new Matrix4x4()
-      .orthographic(
-        0,                   // left
-        canvas.clientWidth,  // right
-        -canvas.clientHeight, // bottom
-        0,                   // top
-        400,                 // near
-        -400,                // far
+      .perspective(
+        Math.PI / 2, // 45 degrees field of view
+        canvas.clientWidth / canvas.clientHeight, // aspect ratio
+        0.1, // near plane
+        1000 // far plane
       ) as Matrix4x4;
 
-    this.drawTileMap(pass, device, view, proj);
+    // this.drawTileMap(pass, device, view, proj);
 
     //scuffed
     systems.forEach(system => {
@@ -561,7 +569,7 @@ class Renderer {
         matrix
           .multiply(view)
           .multiply(proj);
-
+          
         this.uniform_Matrix.set(matrix);
 
         // upload the uniform values to the uniform buffer

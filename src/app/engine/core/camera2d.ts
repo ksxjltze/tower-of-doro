@@ -1,5 +1,5 @@
 import { Matrix3x3, Matrix4x4 } from "./matrix";
-import { Transform2D } from "./transform";
+import { Transform2D, Transform3D} from "./transform";
 
 enum ScalingMode {
     Fixed,
@@ -7,7 +7,7 @@ enum ScalingMode {
 }
 
 class Camera {
-    transform: Transform2D;
+    transform: Transform3D;
     static instance: Camera;
 
     aspectRatio: number;
@@ -19,7 +19,7 @@ class Camera {
     resolutionScale: [number, number] = [1, 1];
 
     constructor() {
-        this.transform = new Transform2D();
+        this.transform = new Transform3D();
         this.matrix = new Matrix4x4();
         this.aspectRatio = 1;
 
@@ -40,8 +40,8 @@ class Camera {
 
         const matrix = this.matrix
             .reset()
-            .translate([pos.x, pos.y, 1])
-            .rotateZ(rot)
+            .translate([pos.x, pos.y, pos.z])
+            .rotateZ(rot[2])
             .scale([scale[0], scale[1], 1]);
 
         // switch (this.scalingMode) {

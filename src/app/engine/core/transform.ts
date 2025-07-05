@@ -1,4 +1,4 @@
-import { Vector2 } from './vector';
+import { Vector2, Vector3 } from './vector';
 
 class Transform2D {
   constructor(
@@ -8,4 +8,12 @@ class Transform2D {
   ) { }
 }
 
-export { Transform2D };
+class Transform3D {
+  constructor(
+    public position: Vector3 = new Vector3(0, 0, 0),
+    public rotation: [number, number, number] = [0, 0, 0],
+    public scale: [number, number, number] = [1, 1, 1],
+  ) { }
+}
+
+export { Transform2D, Transform3D };

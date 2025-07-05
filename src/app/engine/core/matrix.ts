@@ -250,6 +250,10 @@ class Matrix4x4 extends Float32Array {
     return this.multiply(Matrix4x4.ortho(left, right, bottom, top, near, far));
   }
 
+  perspective(fieldOfViewYInRadians: number, aspect: number, zNear: number, zFar: number): Matrix4x4 {
+    return this.multiply(Matrix4x4.perspective(fieldOfViewYInRadians, aspect, zNear, zFar));
+  }
+
   inverse() {
     return Matrix4x4.inverse(this);
   }
@@ -388,6 +392,35 @@ class Matrix4x4 extends Float32Array {
     dst[8] = 0; dst[9] = 0; dst[10] = 1; dst[11] = 0;
     dst[12] = 0; dst[13] = 0; dst[14] = 0; dst[15] = 1;
 
+    return dst as Matrix4x4;
+  }
+
+  static perspective(fieldOfViewYInRadians: number, aspect: number, zNear: number, zFar: number, dst: Float32Array | null = null): Matrix4x4 {
+    dst = dst || new Float32Array(16);
+ 
+    const f = Math.tan(Math.PI * 0.5 - 0.5 * fieldOfViewYInRadians);
+    const rangeInv = 1 / (zNear - zFar);
+ 
+    dst[0] = f / aspect;
+    dst[1] = 0;
+    dst[2] = 0;
+    dst[3] = 0;
+ 
+    dst[4] = 0;
+    dst[5] = f;
+    dst[6] = 0;
+    dst[7] = 0;
+ 
+    dst[8] = 0;
+    dst[9] = 0;
+    dst[10] = zFar * rangeInv;
+    dst[11] = -1;
+ 
+    dst[12] = 0;
+    dst[13] = 0;
+    dst[14] = zNear * zFar * rangeInv;
+    dst[15] = 0;
+ 
     return dst as Matrix4x4;
   }
 
