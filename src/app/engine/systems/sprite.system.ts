@@ -14,6 +14,8 @@ class SpriteSystem extends GameSystem {
         super();
         this.behaviours = [];
         GameSystem.RegisterSystem(BehaviourType.Sprite, this);
+
+        this.pipelines.push(Renderer.Pipeline.Doro3D)
     }
 
     update() {

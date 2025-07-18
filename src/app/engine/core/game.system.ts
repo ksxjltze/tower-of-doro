@@ -7,6 +7,7 @@ abstract class GameSystem {
     abstract behaviours: Array<GameBehaviour>;
     abstract update(): void;
 
+    pipelines: string[];
     onInit() {
         
     }
@@ -25,6 +26,7 @@ abstract class GameSystem {
     render: ((renderer: Renderer, drawFn: (matrix: Matrix4x4) => void) => void) | undefined;
     constructor() {
         this.render = undefined;
+        this.pipelines = [];
     }
 
     static readonly types: Map<string, BehaviourType> = new Map<string, BehaviourType>();

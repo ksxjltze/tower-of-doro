@@ -13,26 +13,58 @@ enum PipelineType {
   Picking
 };
 
+class DoroColor {
+  r: number;
+  g: number;
+  b: number;
+  a: number;
+
+  constructor(r: number, g: number, b: number, a: number) {
+    this.r = r;
+    this.g = g;
+    this.b = b;
+    this.a = a;
+  }
+}
+
 class DoroRenderPipeline {
   renderPassDescriptor?: GPURenderPassDescriptor = undefined;
   sampler?: GPUSampler;
   depthTexture?: GPUTexture;
   renderPipeline: GPURenderPipeline;
   uniformBuffer?: DoroUniformBuffer;
-  
-  constructor(pipeline: GPURenderPipeline) {
+  name: string;
+  layer: number;
+
+  constructor(name: string, pipeline: GPURenderPipeline, layer?: number) {
+    if (layer == undefined)
+      layer = 0;
+
     this.renderPipeline = pipeline;
+    this.name = name;
+    this.layer = layer;
   }
 }
 
 class DoroUniformBuffer {
-  buffer?: GPUBuffer = undefined;
-  values?: ArrayBuffer | GPUAllowSharedBufferSource = undefined;
-  bindGroup?: GPUBindGroup = undefined;
+  buffer: GPUBuffer;
+  values: ArrayBuffer | GPUAllowSharedBufferSource;
+  bindGroup: GPUBindGroup;
+
+  constructor(uniformBuffer: GPUBuffer, values: ArrayBuffer | GPUAllowSharedBufferSource, bindGroup: GPUBindGroup) {
+    this.buffer = uniformBuffer;
+    this.values = values;
+    this.bindGroup = bindGroup;
+  }
 }
 
 class Renderer {
   static instance: Renderer;
+
+  static Pipeline = {
+    Doro3D: "doro3D",
+    Doro2DTilemap: "doro2DTilemap",
+  };
 
   //WebGPU stuff
   context: GPUCanvasContext | null = null;
@@ -44,12 +76,7 @@ class Renderer {
   pipelines = new Map<string, DoroRenderPipeline>();
 
   //tilemap
-  tileMapBuffer?: GPUBuffer = undefined;
-  tileMapPipeline?: GPURenderPipeline = undefined;
-  tileMapBindGroup?: GPUBindGroup = undefined;
   tileMapValues?: Float32Array | GPUAllowSharedBufferSource = undefined;
-  tileMapUniformsBuffer?: GPUBuffer = undefined;
-  tileMapUniformValues?: Float32Array | GPUAllowSharedBufferSource = undefined;
 
   tileMapMatrixValue: Float32Array = new Float32Array(24);
   tileMapColor: Float32Array = new Float32Array(4);
@@ -108,17 +135,6 @@ class Renderer {
       alphaMode: "premultiplied",
     });
 
-    const spriteSize = Constants.UnitSize / 2;
-    // const vertices: Float32Array = new Float32Array([
-    //   -spriteSize, -spriteSize, 0.0, 0.0,  // bottom left
-    //   spriteSize, -spriteSize, 1.0, 0.0,  // bottom right
-    //   -spriteSize, spriteSize, 0.0, 1.0,  // top left
-
-    //   -spriteSize, spriteSize, 0.0, 1.0,  // top left
-    //   spriteSize, -spriteSize, 1.0, 0.0,  // bottom right
-    //   spriteSize, spriteSize, 1.0, 1.0,  // top right
-    // ]);
-
     const vertices: Float32Array = new Float32Array([
       -0.5, -0.5, 0.0, 0.0,  // bottom left
       0.5, -0.5, 1.0, 0.0,  // bottom right
@@ -154,41 +170,25 @@ class Renderer {
       },
     ];
 
-    const doro3DPipeline = await this.createRenderPipeline(shaderModule, vertexBuffers);
-    await this.createTileMapPipeline(tileMapShader, vertexBuffers);
-
-    const canvasTexture = this.context.getCurrentTexture();
-    const depthTexture = device.createTexture({
-      size: [canvasTexture.width, canvasTexture.height],
-      format: 'depth24plus',
-      usage: GPUTextureUsage.RENDER_ATTACHMENT,
-    });
-
+    const doro3DPipeline = await this.createRenderPipeline(Renderer.Pipeline.Doro3D, shaderModule, vertexBuffers);
     if (!doro3DPipeline) {
       console.error("Failed to create Doro3D pipeline.");
       return;
     }
+    this.pipelines.set(Renderer.Pipeline.Doro3D, doro3DPipeline);
 
-    this.pipelines.set("doro3D", doro3DPipeline);
+    const doro2DTilemapPipeline = await this.createTileMapPipeline(tileMapShader, vertexBuffers);
+    if (!doro2DTilemapPipeline) {
+      console.error("Failed to create Doro2D Tilemap pipeline.");
+      return;
+    }
+    // this.pipelines.set(Renderer.Pipeline.Doro2DTilemap, doro2DTilemapPipeline);
+
+    const canvasTexture = this.context.getCurrentTexture();
+    const depthTexture = this.createDepthTexture(this.device, canvasTexture);
 
     const clearColor = { r: 0.0, g: 0.0, b: 0.0, a: 0.0 };
-    doro3DPipeline.renderPassDescriptor = {
-      colorAttachments: [
-        {
-          clearValue: clearColor,
-          loadOp: "clear",
-          storeOp: "store",
-          view: this.context.getCurrentTexture().createView(),
-        },
-      ],
-      depthStencilAttachment: {
-        // view: <- to be filled out when we render
-        depthClearValue: 1.0,
-        depthLoadOp: 'clear',
-        depthStoreOp: 'store',
-        view: depthTexture.createView(),
-      },
-    };
+    doro3DPipeline.renderPassDescriptor = this.createGenericRenderPassDescriptor(clearColor, this.context, depthTexture);
 
     const observer = new ResizeObserver(entries => {
       if (this.device === undefined || this.context === null) {
@@ -217,6 +217,53 @@ class Renderer {
     });
 
     observer.observe(canvas);
+  }
+
+  createDepthTexture(device: GPUDevice, canvasTexture: GPUTexture) {
+    const depthTexture = device.createTexture({
+      size: [canvasTexture.width, canvasTexture.height],
+      format: 'depth24plus',
+      usage: GPUTextureUsage.RENDER_ATTACHMENT,
+    });
+
+    return depthTexture;
+  }
+
+  createGenericRenderPassDescriptor(clearColor: DoroColor, context: GPUCanvasContext, depthTexture: GPUTexture) {
+    const renderPassDescriptor = {
+      colorAttachments: [
+        {
+          clearValue: clearColor,
+          loadOp: "clear",
+          storeOp: "store",
+          view: context.getCurrentTexture().createView(),
+        },
+      ],
+      depthStencilAttachment: {
+        // view: <- to be filled out when we render
+        depthClearValue: 1.0,
+        depthLoadOp: 'clear',
+        depthStoreOp: 'store',
+        view: depthTexture.createView(),
+      },
+    };
+
+    return renderPassDescriptor as GPURenderPassDescriptor;
+  }
+
+  generateSpriteVertices() {
+    const spriteSize = Constants.UnitSize / 2;
+    const vertices: Float32Array = new Float32Array([
+      -spriteSize, -spriteSize, 0.0, 0.0,  // bottom left
+      spriteSize, -spriteSize, 1.0, 0.0,  // bottom right
+      -spriteSize, spriteSize, 0.0, 1.0,  // top left
+
+      -spriteSize, spriteSize, 0.0, 1.0,  // top left
+      spriteSize, -spriteSize, 1.0, 0.0,  // bottom right
+      spriteSize, spriteSize, 1.0, 1.0,  // top right
+    ]);
+
+    return vertices;
   }
 
   async createPickingPipeline(vertexBuffers: GPUVertexBufferLayout[]) {
@@ -255,7 +302,7 @@ class Renderer {
     this.pipelineMap.set(PipelineType.Picking, pipeline);
   }
 
-  async createRenderPipeline(shaderModule: GPUShaderModule, vertexBuffers: GPUVertexBufferLayout[]) {
+  async createRenderPipeline(pipelineName: string, shaderModule: GPUShaderModule, vertexBuffers: GPUVertexBufferLayout[]) {
     const device = this.device;
     const pipelineDescriptor: GPURenderPipelineDescriptor = {
       vertex: {
@@ -298,7 +345,7 @@ class Renderer {
       return null;
 
     const renderPipeline = device.createRenderPipeline(pipelineDescriptor);
-    const doroRenderPipeline = new DoroRenderPipeline(renderPipeline);
+    const doroRenderPipeline = new DoroRenderPipeline(pipelineName, renderPipeline);
 
     const sampler = device.createSampler({
       label: 'sampler for object',
@@ -313,14 +360,10 @@ class Renderer {
 
     doroRenderPipeline.uniformBuffer = doroUniformBuffer;
     doroRenderPipeline.sampler = sampler;
-    doroRenderPipeline.renderPipeline = renderPipeline;
-
     return doroRenderPipeline;
   }
 
   async createDoro3DUniformBuffer(device: GPUDevice, renderPipeline: GPURenderPipeline, sampler: GPUSampler) {
-    const doroUniformBuffer = new DoroUniformBuffer();
-
     //size in bytes
     const colorUniformSize = 16;
     const matrixUniformSize = 64;
@@ -373,17 +416,14 @@ class Renderer {
       ],
     });
 
-    doroUniformBuffer.buffer = uniformBuffer;
-    doroUniformBuffer.values = uniformValues;
-    doroUniformBuffer.bindGroup = bindGroup;
-
+    const doroUniformBuffer = new DoroUniformBuffer(uniformBuffer, uniformValues, bindGroup);
     return doroUniformBuffer;
   }
 
   async createTileMapPipeline(tileMapShader: GPUShaderModule, vertexBuffers: GPUVertexBufferLayout[]) {
     const device = this.device;
     if (!device)
-      return;
+      return null;
 
     //tilemap setup
     const tileMapPipelineDescriptor: GPURenderPipelineDescriptor = {
@@ -411,7 +451,9 @@ class Renderer {
       },
       layout: "auto",
     };
-    this.tileMapPipeline = device.createRenderPipeline(tileMapPipelineDescriptor);
+
+    const tileMapPipeline = device.createRenderPipeline(tileMapPipelineDescriptor);
+    const doroTilemapRenderPipeline = new DoroRenderPipeline(Renderer.Pipeline.Doro2DTilemap, tileMapPipeline, 1);
 
     const colorUniformSize = 16;
     const matrixUniformSize = 64;
@@ -440,7 +482,7 @@ class Renderer {
     const tileFloatCount = 4;
     const tileMapBufferLength = kTilemapWidth * kTilemapHeight * tileFloatCount;
     const tileMapBufferSize = tileMapBufferLength * Float32Array.BYTES_PER_ELEMENT;
-    this.tileMapBuffer = device.createBuffer({
+    const tileMapBuffer = device.createBuffer({
       label: 'tilemap buffer',
       size: tileMapBufferSize,
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
@@ -468,22 +510,30 @@ class Renderer {
       mipmapFilter: 'nearest',
     });
 
-    const tilemapBindGroupLayout = this.tileMapPipeline.getBindGroupLayout(0);
+    const tilemapBindGroupLayout = doroTilemapRenderPipeline.renderPipeline.getBindGroupLayout(0);
     const tileMapBindGroup = device.createBindGroup({
       label: 'bind group for tilemap',
       layout: tilemapBindGroupLayout,
       entries: [
-        { binding: 0, resource: { buffer: this.tileMapBuffer } },
+        { binding: 0, resource: { buffer: tileMapBuffer } },
         { binding: 1, resource: { buffer: tileMapUniformBuffer } },
         { binding: 2, resource: sampler },
         { binding: 3, resource: tileSheet.createView() },
       ],
     });
 
-    this.tileMapBindGroup = tileMapBindGroup;
-    this.tileMapUniformsBuffer = tileMapUniformBuffer;
-    this.tileMapUniformValues = tileMapUniformValues;
+    const doroTilemapUniformBuffer = new DoroUniformBuffer(tileMapBuffer, tileMapData, tileMapBindGroup);
     this.tileMapColor.set([1.0, 1.0, 1.0, 1.0]);
+
+    const clearColor = { r: 0.0, g: 0.0, b: 0.0, a: 0.0 };
+    const canvasTexture = this.context!.getCurrentTexture();
+    const depthTexture = this.createDepthTexture(this.device!, canvasTexture);
+
+    doroTilemapRenderPipeline.renderPassDescriptor = this.createGenericRenderPassDescriptor(clearColor, this.context!, depthTexture);
+    doroTilemapRenderPipeline.uniformBuffer = doroTilemapUniformBuffer;
+    doroTilemapRenderPipeline.sampler = sampler;
+
+    return doroTilemapRenderPipeline;
   }
 
   setTile([x, y]: [number, number], [textureX, textureY]: [number, number]) {
@@ -534,127 +584,148 @@ class Renderer {
 
   render(systems: GameSystem[]) {
     this.pipelines.forEach(pipeline => {
-          if (!this.context || !this.device || !this.vertexBuffer
-      || !pipeline.renderPassDescriptor || !pipeline.uniformBuffer
-      || !pipeline.uniformBuffer.bindGroup || !pipeline.uniformBuffer) {
-      console.error("WebGPU not fully initialized.");
-      return;
-    }
-
-    const device = this.device;
-    const renderPassDescriptor = pipeline.renderPassDescriptor;
-
-    if (!renderPassDescriptor)
-      throw new Error("Render pass descriptor is not defined.");
-
-    //@ts-ignore
-    renderPassDescriptor.colorAttachments[0].view = this.context.getCurrentTexture().createView();
-    const encoder = device.createCommandEncoder({
-      label: 'render quad encoder',
-    });
-
-    const canvasTexture = this.context.getCurrentTexture();
-
-    //@ts-ignore
-    renderPassDescriptor.colorAttachments[0].view = canvasTexture.createView();
-    const depthTexture = pipeline.depthTexture;
-    // If we don't have a depth texture OR if its size is different
-    // from the canvasTexture when make a new depth texture
-    if (!depthTexture ||
-      depthTexture.width !== canvasTexture.width ||
-      depthTexture.height !== canvasTexture.height) {
-      if (depthTexture) {
-        depthTexture.destroy();
+      if (!this.context || !this.device || !this.vertexBuffer) {
+        console.error("WebGPU not fully initialized.");
+        return;
       }
-      pipeline.depthTexture = device.createTexture({
-        size: [canvasTexture.width, canvasTexture.height],
-        format: 'depth24plus',
-        usage: GPUTextureUsage.RENDER_ATTACHMENT,
+
+      if (!pipeline.renderPassDescriptor || !pipeline.uniformBuffer
+        || !pipeline.uniformBuffer.bindGroup || !pipeline.uniformBuffer.buffer) {
+        console.log(pipeline);
+        console.error("Render pipeline not fully initialized.");
+        return;
+      }
+
+      const device = this.device;
+      const renderPassDescriptor = pipeline.renderPassDescriptor;
+
+      if (!renderPassDescriptor)
+        throw new Error("Render pass descriptor is not defined.");
+
+      //@ts-ignore
+      renderPassDescriptor.colorAttachments[0].view = this.context.getCurrentTexture().createView();
+      const encoder = device.createCommandEncoder({
+        label: 'render quad encoder',
       });
-    }
 
-    //@ts-ignore
-    renderPassDescriptor.depthStencilAttachment.view = pipeline.depthTexture?.createView();
+      const canvasTexture = this.context.getCurrentTexture();
 
-    const pass = encoder.beginRenderPass(renderPassDescriptor);
-    const uniformBuffer = pipeline.uniformBuffer.buffer;
-    const uniformValues = pipeline.uniformBuffer.values;
-    const canvas = this.context?.canvas as HTMLCanvasElement;
+      //@ts-ignore
+      renderPassDescriptor.colorAttachments[0].view = canvasTexture.createView();
+      const depthTexture = pipeline.depthTexture;
+      // If we don't have a depth texture OR if its size is different
+      // from the canvasTexture when make a new depth texture
+      if (!depthTexture ||
+        depthTexture.width !== canvasTexture.width ||
+        depthTexture.height !== canvasTexture.height) {
+        if (depthTexture) {
+          depthTexture.destroy();
+        }
+        pipeline.depthTexture = device.createTexture({
+          size: [canvasTexture.width, canvasTexture.height],
+          format: 'depth24plus',
+          usage: GPUTextureUsage.RENDER_ATTACHMENT,
+        });
+      }
 
-    if (!uniformBuffer || !uniformValues || !canvas) {
-      console.error("Uniform buffer or canvas is not defined.");
+      //@ts-ignore
+      renderPassDescriptor.depthStencilAttachment.view = pipeline.depthTexture?.createView();
+
+      const pass = encoder.beginRenderPass(renderPassDescriptor);
+      const uniformBuffer = pipeline.uniformBuffer.buffer;
+      const uniformValues = pipeline.uniformBuffer.values;
+      const canvas = this.context?.canvas as HTMLCanvasElement;
+
+      if (!uniformBuffer || !uniformValues || !canvas) {
+        console.error("Uniform buffer or canvas is not defined.");
+        return;
+      }
+
+      const camera = Camera.instance;
+      const view = camera.computeViewMatrix();
+      const proj = new Matrix4x4()
+        .perspective(
+          Math.PI / 2, // 45 degrees field of view
+          canvas.clientWidth / canvas.clientHeight, // aspect ratio
+          0.1, // near plane
+          1000 // far plane
+        ) as Matrix4x4;
+
+      // this.drawTileMap(pass, device, view, proj);
+      const bindGroup = pipeline.uniformBuffer.bindGroup;
+
+      //scuffed
+      systems.forEach(system => {
+        if (!system.render)
+          return;
+        
+        if (!system.pipelines.includes(pipeline.name))
+          return;
+
+        system.render(this, (matrix) => {
+          matrix
+            .multiply(view)
+            .multiply(proj);
+
+          this.uniform_Matrix.set(matrix);
+
+          // upload the uniform values to the uniform buffer
+          device.queue.writeBuffer(uniformBuffer, 0, uniformValues);
+          pass.setPipeline(pipeline.renderPipeline);
+          pass.setBindGroup(0, bindGroup);
+          pass.setVertexBuffer(0, this.vertexBuffer);
+          pass.setBindGroup(0, bindGroup);
+
+          pass.draw(6);
+        });
+
+      });
+
+      pass.end();
+      const commandBuffer = encoder.finish();
+      device.queue.submit([commandBuffer]);
+    });
+  }
+
+  drawTileMap(tileMapPipeline: DoroRenderPipeline, pass: GPURenderPassEncoder, device: GPUDevice, view: Matrix4x4, canvas: HTMLCanvasElement) {
+    const uniformBuffer = tileMapPipeline.uniformBuffer;
+    if (!uniformBuffer?.buffer || !this.tileMapValues) {
       return;
     }
 
-    const camera = Camera.instance;
-    const view = camera.computeViewMatrix();
     const proj = new Matrix4x4()
-      .perspective(
-        Math.PI / 2, // 45 degrees field of view
-        canvas.clientWidth / canvas.clientHeight, // aspect ratio
-        0.1, // near plane
-        1000 // far plane
+      .orthographic(
+        0,                   // left
+        canvas.clientWidth,  // right
+        -canvas.clientHeight, // bottom
+        0,                   // top
+        400,                 // near
+        -400,                // far
       ) as Matrix4x4;
 
-    // this.drawTileMap(pass, device, view, proj);
-    const bindGroup = pipeline.uniformBuffer.bindGroup;
+    // upload the uniform values to the uniform buffer
+    device.queue.writeBuffer(uniformBuffer.buffer, 0, this.tileMapValues);
 
-    //scuffed
-    systems.forEach(system => {
-      if (!system.render)
-        return;
+    const matrix = new Matrix4x4();
+    matrix
+      .translate([-kTilemapWidth / 2 * kTileSize, -kTilemapHeight / 2 * kTileSize, 0])
+      .multiply(view)
+      .multiply(proj);
 
-      system.render(this, (matrix) => {
-        matrix
-          .multiply(view)
-          .multiply(proj);
-          
-        this.uniform_Matrix.set(matrix);
+    this.tileMapMatrixValue.set(matrix);
+    this.tileMapMatrix = matrix;
 
-        // upload the uniform values to the uniform buffer
-        device.queue.writeBuffer(uniformBuffer, 0, uniformValues);
-        pass.setPipeline(pipeline.renderPipeline);
-        pass.setBindGroup(0, bindGroup);
-        pass.setVertexBuffer(0, this.vertexBuffer);
-        pass.setBindGroup(0, bindGroup);
+    device.queue.writeBuffer(uniformBuffer.buffer, 0, uniformBuffer.values);
 
-        pass.draw(6);
-      });
+    pass.setPipeline(tileMapPipeline.renderPipeline);
+    pass.setBindGroup(0, uniformBuffer.bindGroup);
+    pass.setVertexBuffer(0, this.vertexBuffer);
+    pass.setBindGroup(0, uniformBuffer.bindGroup);
 
-    });
-
-    pass.end();
-    const commandBuffer = encoder.finish();
-    device.queue.submit([commandBuffer]);
-    });
+    pass.draw(6, kTilemapWidth * kTilemapHeight, 0, 0); // draw all tiles
   }
 
-  drawTileMap(pass: GPURenderPassEncoder, device: GPUDevice, view: Matrix4x4, proj: Matrix4x4) {
-    if (this.tileMapPipeline && this.tileMapBindGroup && this.tileMapBuffer && this.tileMapValues && this.tileMapUniformValues && this.tileMapUniformsBuffer) {
-      // upload the uniform values to the uniform buffer
-      device.queue.writeBuffer(this.tileMapBuffer, 0, this.tileMapValues);
-
-      const matrix = new Matrix4x4();
-      matrix
-        .translate([-kTilemapWidth / 2 * kTileSize, -kTilemapHeight / 2 * kTileSize, 0])
-        .multiply(view)
-        .multiply(proj);
-
-      this.tileMapMatrixValue.set(matrix);
-      this.tileMapMatrix = matrix;
-
-      device.queue.writeBuffer(this.tileMapUniformsBuffer, 0, this.tileMapUniformValues);
-
-      pass.setPipeline(this.tileMapPipeline);
-      pass.setBindGroup(0, this.tileMapBindGroup);
-      pass.setVertexBuffer(0, this.vertexBuffer);
-      pass.setBindGroup(0, this.tileMapBindGroup);
-
-      pass.draw(6, kTilemapWidth * kTilemapHeight, 0, 0); // draw all tiles
-    }
-  }
-
-  getPipeline(name: string) : DoroRenderPipeline | undefined {
+  getPipeline(name: string): DoroRenderPipeline | undefined {
     return this.pipelines.get(name);
   }
 
