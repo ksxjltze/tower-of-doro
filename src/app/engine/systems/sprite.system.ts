@@ -70,7 +70,7 @@ class SpriteSystem extends GameSystem {
 
         if (sprite) {
             if (sprite.texture?.changed) {
-                renderer.setTexture(sprite.texture?.handle!);
+                renderer.setTexture(sprite.texture?.handle!, renderer.getPipeline('doro3D')!);
                 sprite.texture.changed = false;
             }
 

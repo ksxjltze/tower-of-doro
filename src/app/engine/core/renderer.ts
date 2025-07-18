@@ -13,6 +13,20 @@ enum PipelineType {
   Picking
 };
 
+class DoroRenderPipeline {
+  renderPassDescriptor?: GPURenderPassDescriptor = undefined;
+  uniformBuffer?: GPUBuffer = undefined;
+  uniformValues?: ArrayBuffer | GPUAllowSharedBufferSource = undefined;
+  bindGroup?: GPUBindGroup = undefined;
+  sampler?: GPUSampler;
+  depthTexture?: GPUTexture;
+  renderPipeline: GPURenderPipeline;
+  
+  constructor(pipeline: GPURenderPipeline) {
+    this.renderPipeline = pipeline;
+  }
+}
+
 class Renderer {
   static instance: Renderer;
 
@@ -20,17 +34,10 @@ class Renderer {
   context: GPUCanvasContext | null = null;
   device?: GPUDevice = undefined;
   vertexBuffer?: GPUBuffer = undefined;
-  renderPipeline?: GPURenderPipeline = undefined;
 
   pipelineMap = new Map<PipelineType, GPURenderPipeline>();
   shaderMap = new Map<PipelineType, GPUShaderModule>();
-
-  renderPassDescriptor?: GPURenderPassDescriptor = undefined;
-  uniformBuffer?: GPUBuffer = undefined;
-  uniformValues?: ArrayBuffer | GPUAllowSharedBufferSource = undefined;
-  bindGroup?: GPUBindGroup = undefined;
-  sampler?: GPUSampler;
-  depthTexture?: GPUTexture;
+  pipelines = new Map<string, DoroRenderPipeline>();
 
   //tilemap
   tileMapBuffer?: GPUBuffer = undefined;
@@ -143,7 +150,7 @@ class Renderer {
       },
     ];
 
-    await this.createRenderPipeline(shaderModule, vertexBuffers);
+    const doro3DPipeline = await this.createRenderPipeline(shaderModule, vertexBuffers);
     await this.createTileMapPipeline(tileMapShader, vertexBuffers);
 
     const canvasTexture = this.context.getCurrentTexture();
@@ -153,8 +160,15 @@ class Renderer {
       usage: GPUTextureUsage.RENDER_ATTACHMENT,
     });
 
+    if (!doro3DPipeline) {
+      console.error("Failed to create Doro3D pipeline.");
+      return;
+    }
+
+    this.pipelines.set("doro3D", doro3DPipeline);
+
     const clearColor = { r: 0.0, g: 0.0, b: 0.0, a: 0.0 };
-    this.renderPassDescriptor = {
+    doro3DPipeline.renderPassDescriptor = {
       colorAttachments: [
         {
           clearValue: clearColor,
@@ -239,9 +253,6 @@ class Renderer {
 
   async createRenderPipeline(shaderModule: GPUShaderModule, vertexBuffers: GPUVertexBufferLayout[]) {
     const device = this.device;
-    if (!device)
-      return;
-
     const pipelineDescriptor: GPURenderPipelineDescriptor = {
       vertex: {
         module: shaderModule,
@@ -279,7 +290,11 @@ class Renderer {
       layout: "auto",
     };
 
-    this.renderPipeline = device.createRenderPipeline(pipelineDescriptor);
+    if (!device)
+      return null;
+
+    const renderPipeline = device.createRenderPipeline(pipelineDescriptor);
+    const doroRenderPipeline = new DoroRenderPipeline(renderPipeline);
 
     //size in bytes
     const colorUniformSize = 16;
@@ -319,6 +334,7 @@ class Renderer {
     // colorValue.set([Math.random(), Math.random(), Math.random(), 1]);
     this.uniform_Color.set([1.0, 1.0, 1.0, 1.0]); // white color
 
+    //TODO: move
     const doroIdleTexture = await Resources.loadDoroTexture(device);
     const doroRunTexture = await Resources.loadDoroRunSpriteSheet(device);
 
@@ -333,7 +349,7 @@ class Renderer {
 
     const bindGroup = device.createBindGroup({
       label: 'bind group for object',
-      layout: this.renderPipeline.getBindGroupLayout(0),
+      layout: renderPipeline.getBindGroupLayout(0),
       entries: [
         { binding: 0, resource: { buffer: uniformBuffer } },
         { binding: 1, resource: sampler },
@@ -341,10 +357,13 @@ class Renderer {
       ],
     });
 
-    this.uniformBuffer = uniformBuffer;
-    this.uniformValues = uniformValues;
-    this.bindGroup = bindGroup;
-    this.sampler = sampler;
+    doroRenderPipeline.uniformBuffer = uniformBuffer;
+    doroRenderPipeline.uniformValues = uniformValues;
+    doroRenderPipeline.bindGroup = bindGroup;
+    doroRenderPipeline.sampler = sampler;
+    doroRenderPipeline.renderPipeline = renderPipeline;
+
+    return doroRenderPipeline;
   }
 
   async createTileMapPipeline(tileMapShader: GPUShaderModule, vertexBuffers: GPUVertexBufferLayout[]) {
@@ -500,15 +519,16 @@ class Renderer {
   }
 
   render(systems: GameSystem[]) {
-    if (!this.context || !this.device || !this.renderPipeline || !this.vertexBuffer
-      || !this.renderPassDescriptor || !this.uniformBuffer
-      || !this.bindGroup || !this.uniformValues) {
+    this.pipelines.forEach(pipeline => {
+          if (!this.context || !this.device || !this.vertexBuffer
+      || !pipeline.renderPassDescriptor || !pipeline.uniformBuffer
+      || !pipeline.bindGroup || !pipeline.uniformValues) {
       console.error("WebGPU not fully initialized.");
       return;
     }
 
     const device = this.device;
-    const renderPassDescriptor = this.renderPassDescriptor;
+    const renderPassDescriptor = pipeline.renderPassDescriptor;
 
     if (!renderPassDescriptor)
       throw new Error("Render pass descriptor is not defined.");
@@ -523,7 +543,7 @@ class Renderer {
 
     //@ts-ignore
     renderPassDescriptor.colorAttachments[0].view = canvasTexture.createView();
-    const depthTexture = this.depthTexture;
+    const depthTexture = pipeline.depthTexture;
     // If we don't have a depth texture OR if its size is different
     // from the canvasTexture when make a new depth texture
     if (!depthTexture ||
@@ -532,7 +552,7 @@ class Renderer {
       if (depthTexture) {
         depthTexture.destroy();
       }
-      this.depthTexture = device.createTexture({
+      pipeline.depthTexture = device.createTexture({
         size: [canvasTexture.width, canvasTexture.height],
         format: 'depth24plus',
         usage: GPUTextureUsage.RENDER_ATTACHMENT,
@@ -540,12 +560,11 @@ class Renderer {
     }
 
     //@ts-ignore
-    renderPassDescriptor.depthStencilAttachment.view = this.depthTexture?.createView();
+    renderPassDescriptor.depthStencilAttachment.view = pipeline.depthTexture?.createView();
 
     const pass = encoder.beginRenderPass(renderPassDescriptor);
-    const uniformBuffer = this.uniformBuffer;
-    const renderPipeline = this.renderPipeline;
-    const uniformValues = this.uniformValues;
+    const uniformBuffer = pipeline.uniformBuffer;
+    const uniformValues = pipeline.uniformValues;
     const canvas = this.context?.canvas as HTMLCanvasElement;
 
     const camera = Camera.instance;
@@ -575,10 +594,10 @@ class Renderer {
         // upload the uniform values to the uniform buffer
         device.queue.writeBuffer(uniformBuffer, 0, uniformValues);
 
-        pass.setPipeline(renderPipeline);
-        pass.setBindGroup(0, this.bindGroup);
+        pass.setPipeline(pipeline.renderPipeline);
+        pass.setBindGroup(0, pipeline.bindGroup);
         pass.setVertexBuffer(0, this.vertexBuffer);
-        pass.setBindGroup(0, this.bindGroup);
+        pass.setBindGroup(0, pipeline.bindGroup);
 
         pass.draw(6);
       });
@@ -588,6 +607,7 @@ class Renderer {
     pass.end();
     const commandBuffer = encoder.finish();
     device.queue.submit([commandBuffer]);
+    });
   }
 
   drawTileMap(pass: GPURenderPassEncoder, device: GPUDevice, view: Matrix4x4, proj: Matrix4x4) {
@@ -615,22 +635,26 @@ class Renderer {
     }
   }
 
+  getPipeline(name: string) : DoroRenderPipeline | undefined {
+    return this.pipelines.get(name);
+  }
+
   //temp
-  setTexture(texture: GPUTexture) {
-    if (!this.device || !this.renderPipeline || !this.sampler || !this.uniformBuffer)
+  setTexture(texture: GPUTexture, pipeline: DoroRenderPipeline) {
+    if (!this.device || !pipeline.renderPipeline || !pipeline.sampler || !pipeline.uniformBuffer)
       return;
 
     const bindGroup = this.device.createBindGroup({
       label: 'bind group for object',
-      layout: this.renderPipeline.getBindGroupLayout(0),
+      layout: pipeline.renderPipeline.getBindGroupLayout(0),
       entries: [
-        { binding: 0, resource: { buffer: this.uniformBuffer } },
-        { binding: 1, resource: this.sampler },
+        { binding: 0, resource: { buffer: pipeline.uniformBuffer } },
+        { binding: 1, resource: pipeline.sampler },
         { binding: 2, resource: texture.createView() },
       ],
     });
 
-    this.bindGroup = bindGroup;
+    pipeline.bindGroup = bindGroup;
   }
 }
 
