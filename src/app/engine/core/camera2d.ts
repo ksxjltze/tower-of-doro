@@ -57,10 +57,4 @@ class Camera {
     }
 }
 
-class Camera2D extends Camera {
-    constructor() {
-        super();
-    }
-}
-
-export { Camera, Camera2D };
+export { Camera };

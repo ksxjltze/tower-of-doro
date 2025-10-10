@@ -1,6 +1,6 @@
 import { Matrix3x3, Matrix4x4 } from './matrix';
-import { shaders, tilemapShader, pickingShader } from './shaders';
-import { Camera, Camera2D } from './camera2d';
+import { shaders } from './shaders';
+import { Camera } from './camera2d';
 import { Resources } from './resources';
 import { Constants } from './constants';
 
@@ -24,12 +24,12 @@ class DoroColor {
   }
 }
 
-class DoroRenderPipeline {
+class RenderPipeline3D {
   renderPassDescriptor?: GPURenderPassDescriptor = undefined;
   sampler?: GPUSampler;
   depthTexture?: GPUTexture;
   renderPipeline: GPURenderPipeline;
-  uniformBuffer?: DoroUniformBuffer;
+  uniformBuffer?: UniformBuffer3D;
   name: string;
   layer: number;
 
@@ -43,7 +43,7 @@ class DoroRenderPipeline {
   }
 }
 
-class DoroUniformBuffer {
+class UniformBuffer3D {
   buffer: GPUBuffer;
   values: ArrayBuffer | GPUAllowSharedBufferSource;
   bindGroup: GPUBindGroup;
@@ -69,15 +69,7 @@ class Renderer {
 
   pipelineMap = new Map<PipelineType, GPURenderPipeline>();
   shaderMap = new Map<PipelineType, GPUShaderModule>();
-  pipelines = new Map<string, DoroRenderPipeline>();
-
-  //tilemap
-  tileMapValues?: Float32Array | GPUAllowSharedBufferSource = undefined;
-
-  tileMapMatrixValue: Float32Array = new Float32Array(24);
-  tileMapColor: Float32Array = new Float32Array(4);
-  tileOffset: number;
-  tileMapMatrix: Matrix4x4 = new Matrix4x4();
+  pipelines = new Map<string, RenderPipeline3D>();
 
   // Uniform values
   uniform_Matrix: Float32Array = new Float32Array();
@@ -85,11 +77,11 @@ class Renderer {
   uniform_Sprite_UV_Size_X: Float32Array = new Float32Array();
   uniform_Sprite_UV_Offset_X: Float32Array = new Float32Array();
 
-  //camera?
-  camera: Camera2D = new Camera2D();
+  //TODO: make variable
+  camera: Camera = new Camera();
 
   constructor() {
-    this.tileOffset = 0;
+
   }
 
   async initWebGPU() {
@@ -108,10 +100,6 @@ class Renderer {
 
     const shaderModule = device.createShaderModule({
       code: shaders,
-    });
-
-    const tileMapShader = device.createShaderModule({
-      code: tilemapShader,
     });
 
     const canvas = document.querySelector("#gameCanvas") as HTMLCanvasElement;
@@ -254,42 +242,6 @@ class Renderer {
     return vertices;
   }
 
-  async createPickingPipeline(vertexBuffers: GPUVertexBufferLayout[]) {
-    const device = this.device;
-    if (!device)
-      return;
-
-    const shaderModule = device.createShaderModule({
-      code: pickingShader
-    });
-
-    const pipelineDescriptor: GPURenderPipelineDescriptor = {
-      vertex: {
-        module: shaderModule,
-        entryPoint: "vertex_main",
-        buffers: vertexBuffers,
-      },
-      fragment: {
-        module: shaderModule,
-        entryPoint: "fragment_main",
-        targets: [
-          {
-            format: navigator.gpu.getPreferredCanvasFormat(),
-          },
-        ],
-      },
-      primitive: {
-        topology: "triangle-list",
-      },
-      layout: "auto",
-    };
-
-    const pipeline = device.createRenderPipeline(pipelineDescriptor);
-
-    this.shaderMap.set(PipelineType.Picking, shaderModule);
-    this.pipelineMap.set(PipelineType.Picking, pipeline);
-  }
-
   async createRenderPipeline(pipelineName: string, shaderModule: GPUShaderModule, vertexBuffers: GPUVertexBufferLayout[]) {
     const device = this.device;
     const pipelineDescriptor: GPURenderPipelineDescriptor = {
@@ -333,7 +285,7 @@ class Renderer {
       return null;
 
     const renderPipeline = device.createRenderPipeline(pipelineDescriptor);
-    const doroRenderPipeline = new DoroRenderPipeline(pipelineName, renderPipeline);
+    const doroRenderPipeline = new RenderPipeline3D(pipelineName, renderPipeline);
 
     const sampler = device.createSampler({
       label: 'sampler for object',
@@ -389,10 +341,7 @@ class Renderer {
 
     // colorValue.set([Math.random(), Math.random(), Math.random(), 1]);
     this.uniform_Color.set([1.0, 1.0, 1.0, 1.0]); // white color
-
-    //TODO: move
-    const doroIdleTexture = await Resources.loadDoroTexture(device);
-    const doroRunTexture = await Resources.loadDoroRunSpriteSheet(device);
+    const defaultTexture = await Resources.loadDefaultTexture(device);
 
     const bindGroup = device.createBindGroup({
       label: 'bind group for object',
@@ -400,11 +349,11 @@ class Renderer {
       entries: [
         { binding: 0, resource: { buffer: uniformBuffer } },
         { binding: 1, resource: sampler },
-        { binding: 2, resource: doroRunTexture.createView() },
+        { binding: 2, resource: defaultTexture.createView() },
       ],
     });
 
-    const doroUniformBuffer = new DoroUniformBuffer(uniformBuffer, uniformValues, bindGroup);
+    const doroUniformBuffer = new UniformBuffer3D(uniformBuffer, uniformValues, bindGroup);
     return doroUniformBuffer;
   }
 
@@ -479,7 +428,6 @@ class Renderer {
 
       const bindGroup = pipeline.uniformBuffer.bindGroup;
       const matrix = new Matrix4x4();
-      
       matrix
         .multiply(view)
         .multiply(proj);
@@ -501,11 +449,11 @@ class Renderer {
     });
   }
 
-  getPipeline(name: string): DoroRenderPipeline | undefined {
+  getPipeline(name: string): RenderPipeline3D | undefined {
     return this.pipelines.get(name);
   }
 
-  setTexture(texture: GPUTexture, pipeline: DoroRenderPipeline) {
+  setTexture(texture: GPUTexture, pipeline: RenderPipeline3D) {
     if (!this.device || !pipeline.renderPipeline || !pipeline.sampler || !pipeline.uniformBuffer || !pipeline.uniformBuffer.buffer)
       return;
 

@@ -1,4 +1,4 @@
-import { Camera, Camera2D } from "../core/camera2d";
+import { Camera } from "../core/camera2d";
 import { Renderer } from "../core/renderer";
 import { Scene } from "../core/scene";
 import { Vector2, Vector3 } from "../core/vector";

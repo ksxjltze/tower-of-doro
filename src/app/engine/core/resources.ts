@@ -39,6 +39,11 @@ class Resources {
         return textures;
     }
 
+    static async loadDefaultTexture(device: GPUDevice): Promise<GPUTexture> {
+        const url = '/resources/images/textures/default.png';
+        return await Resources.loadTexture(url, device);
+    }
+
     static async loadDoroTexture(device: GPUDevice): Promise<GPUTexture> {
         const url = '/resources/images/textures/doro/sprites/idle/doro.png';
         return await Resources.loadTexture(url, device);
