@@ -2,7 +2,6 @@ import { Matrix3x3, Matrix4x4 } from './matrix';
 import { shaders, tilemapShader, pickingShader } from './shaders';
 import { Camera, Camera2D } from './camera2d';
 import { Resources } from './resources';
-import { GameSystem } from './game.system';
 import { Constants } from './constants';
 
 enum PipelineType {
@@ -409,7 +408,7 @@ class Renderer {
     return doroUniformBuffer;
   }
 
-  render(systems: GameSystem[]) {
+  render() {
     this.pipelines.forEach(pipeline => {
       if (!this.context || !this.device || !this.vertexBuffer) {
         console.error("WebGPU not fully initialized.");
@@ -479,33 +478,22 @@ class Renderer {
         ) as Matrix4x4;
 
       const bindGroup = pipeline.uniformBuffer.bindGroup;
+      const matrix = new Matrix4x4();
+      
+      matrix
+        .multiply(view)
+        .multiply(proj);
 
-      //scuffed
-      systems.forEach(system => {
-        if (!system.render)
-          return;
-        
-        if (!system.pipelines.includes(pipeline.name))
-          return;
+      this.uniform_Matrix.set(matrix);
 
-        system.render(this, (matrix) => {
-          matrix
-            .multiply(view)
-            .multiply(proj);
+      // upload the uniform values to the uniform buffer
+      device.queue.writeBuffer(uniformBuffer, 0, uniformValues);
+      pass.setPipeline(pipeline.renderPipeline);
+      pass.setBindGroup(0, bindGroup);
+      pass.setVertexBuffer(0, this.vertexBuffer);
+      pass.setBindGroup(0, bindGroup);
 
-          this.uniform_Matrix.set(matrix);
-
-          // upload the uniform values to the uniform buffer
-          device.queue.writeBuffer(uniformBuffer, 0, uniformValues);
-          pass.setPipeline(pipeline.renderPipeline);
-          pass.setBindGroup(0, bindGroup);
-          pass.setVertexBuffer(0, this.vertexBuffer);
-          pass.setBindGroup(0, bindGroup);
-
-          pass.draw(6);
-        });
-
-      });
+      pass.draw(6);
 
       pass.end();
       const commandBuffer = encoder.finish();

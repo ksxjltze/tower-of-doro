@@ -1,32 +1,51 @@
 import { Camera, Camera2D } from "../core/camera2d";
-import { GameSystem } from "../core/game.system";
 import { Renderer } from "../core/renderer";
 import { Scene } from "../core/scene";
 import { Vector2, Vector3 } from "../core/vector";
-import { SpriteSystem } from "../systems/sprite.system";
+import { Time } from "../core/time";
+import { Input } from "../core/input";
 
 class Runtime {
     scene: Scene;
     renderer: Renderer;
-    systems: GameSystem[] = [];
     initialized: boolean = false;
+
+    elapsedTime = 0;
+    lastTimestamp: DOMHighResTimeStamp | null = null;
 
     constructor() {
         this.scene = new Scene("NewScene");
         this.renderer = new Renderer();
+
+        Input.setupInput();
+    }
+
+    update(timestamp?: DOMHighResTimeStamp) {
+        if (this.lastTimestamp === null) {
+            this.lastTimestamp = timestamp || performance.now();
+        }
+
+        const time = timestamp || performance.now();
+        Time.deltaTime = (time - this.lastTimestamp) / 1000; // convert to seconds
+
+        this.elapsedTime += Time.deltaTime;
+        this.lastTimestamp = timestamp || performance.now();
+
+        //TODO: frame management
+
+        // Update input state for the current frame
+        Input.frameKeyMap.clear();
     }
 
     async init(onInit: CallableFunction | undefined = undefined,
         renderCallback: FrameRequestCallback | undefined = undefined) {
         if (!renderCallback)
-            renderCallback = this.render;
+            renderCallback = this.runGameLoop;
 
         await this.renderer.initWebGPU();
         if (onInit)
             await onInit();
 
-        //temp
-        const canvas = this.renderer.context?.canvas as HTMLCanvasElement;
         const camera = Camera.instance;
         camera.transform.position = new Vector3(0, 0, -1);
 
@@ -34,12 +53,15 @@ class Runtime {
         requestAnimationFrame(renderCallback.bind(this));
     }
 
-    render() {
-        this
-            .renderer
-            .render(this.systems);
+    runGameLoop(timestamp?: DOMHighResTimeStamp) {
+        this.update(timestamp);
+        this.renderer.render();
 
-        requestAnimationFrame(this.render.bind(this));
+        requestAnimationFrame(this.runGameLoop.bind(this));
+    }
+
+    onDestroy() {
+        
     }
 }
 

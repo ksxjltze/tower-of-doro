@@ -1,6 +1,5 @@
 import { Component } from '@angular/core';
 import { Runtime } from '../engine/runtime/runtime';
-import { GameRuntime } from './game.runtime';
 
 @Component({
   selector: 'app-game',
@@ -9,10 +8,10 @@ import { GameRuntime } from './game.runtime';
   styleUrl: './game.component.css'
 })
 export class GameComponent {
-  runtime: GameRuntime;
+  runtime: Runtime;
 
   constructor() {
-    this.runtime = new GameRuntime();
+    this.runtime = new Runtime();
   }
 
   ngOnInit() {
