@@ -3,6 +3,7 @@ import { shaders } from './shaders';
 import { Camera } from './camera2d';
 import { Resources } from './resources';
 import { Constants } from './constants';
+import { Transform3D } from './transform';
 
 enum PipelineType {
   Sprite,
@@ -33,6 +34,8 @@ class RenderPipeline3D {
   name: string;
   layer: number;
 
+  renderQueue: RenderQueue;
+
   constructor(name: string, pipeline: GPURenderPipeline, layer?: number) {
     if (layer == undefined)
       layer = 0;
@@ -40,6 +43,35 @@ class RenderPipeline3D {
     this.renderPipeline = pipeline;
     this.name = name;
     this.layer = layer;
+
+    this.renderQueue = new RenderQueue();
+  }
+}
+
+class Renderable {
+  matrix: Matrix4x4;
+
+  constructor(transform: Transform3D) {
+    this.matrix = transform.computeModelMatrix();
+  }
+}
+
+class RenderQueue {
+  buffer: Renderable[] = [];
+  constructor() {
+
+  }
+
+  pushTransform(transform: Transform3D) {
+    this.buffer.push(new Renderable(transform));
+  }
+
+  flush(callback: (obj: Renderable) => void) {
+    this.buffer.forEach(obj => {
+      callback(obj);
+    });
+
+    this.buffer = [];
   }
 }
 
@@ -59,7 +91,7 @@ class Renderer {
   static instance: Renderer;
 
   static Pipeline = {
-    Doro3D: "doro3D",
+    Standard: "standard",
   };
 
   //WebGPU stuff
@@ -82,6 +114,13 @@ class Renderer {
 
   constructor() {
 
+  }
+
+  pushTransform(transform: Transform3D) {
+    const pipeline = this.getPipeline(Renderer.Pipeline.Standard);
+    if (pipeline) {
+      pipeline.renderQueue.pushTransform(transform);
+    }
   }
 
   async initWebGPU() {
@@ -153,12 +192,12 @@ class Renderer {
       },
     ];
 
-    const doro3DPipeline = await this.createRenderPipeline(Renderer.Pipeline.Doro3D, shaderModule, vertexBuffers);
+    const doro3DPipeline = await this.createRenderPipeline(Renderer.Pipeline.Standard, shaderModule, vertexBuffers);
     if (!doro3DPipeline) {
       console.error("Failed to create Doro3D pipeline.");
       return;
     }
-    this.pipelines.set(Renderer.Pipeline.Doro3D, doro3DPipeline);
+    this.pipelines.set(Renderer.Pipeline.Standard, doro3DPipeline);
 
     const canvasTexture = this.context.getCurrentTexture();
     const depthTexture = this.createDepthTexture(this.device, canvasTexture);
@@ -426,22 +465,26 @@ class Renderer {
           1000 // far plane
         ) as Matrix4x4;
 
-      const bindGroup = pipeline.uniformBuffer.bindGroup;
-      const matrix = new Matrix4x4();
-      matrix
-        .multiply(view)
-        .multiply(proj);
+        pipeline.renderQueue.flush((obj: Renderable) => {
+            // set model matrix here
+          const bindGroup = pipeline.uniformBuffer!.bindGroup;
+          const matrix = new Matrix4x4();
+          matrix
+            .multiply(obj.matrix)
+            .multiply(view)
+            .multiply(proj)
 
-      this.uniform_Matrix.set(matrix);
+          this.uniform_Matrix.set(matrix);
 
-      // upload the uniform values to the uniform buffer
-      device.queue.writeBuffer(uniformBuffer, 0, uniformValues);
-      pass.setPipeline(pipeline.renderPipeline);
-      pass.setBindGroup(0, bindGroup);
-      pass.setVertexBuffer(0, this.vertexBuffer);
-      pass.setBindGroup(0, bindGroup);
+          // upload the uniform values to the uniform buffer
+          device.queue.writeBuffer(uniformBuffer, 0, uniformValues);
+          pass.setPipeline(pipeline.renderPipeline);
+          pass.setBindGroup(0, bindGroup);
+          pass.setVertexBuffer(0, this.vertexBuffer);
+          pass.setBindGroup(0, bindGroup);
 
-      pass.draw(6);
+          pass.draw(6);
+        });
 
       pass.end();
       const commandBuffer = encoder.finish();

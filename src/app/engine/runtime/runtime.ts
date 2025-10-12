@@ -4,6 +4,7 @@ import { Scene } from "../core/scene";
 import { Vector2, Vector3 } from "../core/vector";
 import { Time } from "../core/time";
 import { Input } from "../core/input";
+import { GameObject } from "../core/game.object";
 
 class Runtime {
     scene: Scene;
@@ -47,7 +48,12 @@ class Runtime {
             await onInit();
 
         const camera = Camera.instance;
-        camera.transform.position = new Vector3(0, 0, -1);
+        camera.transform.position = new Vector3(0, 0, -2);
+
+        const gameObject = this.scene.AddObject(new GameObject("GameObject"));
+        gameObject.transform.position = new Vector3(0, 0, 0);
+        gameObject.transform.scale = [0.5, 0.5, 0.5];
+        gameObject.transform.rotation = [0, Math.PI / 4, Math.PI / 4];
 
         this.initialized = true;
         requestAnimationFrame(renderCallback.bind(this));
@@ -55,6 +61,9 @@ class Runtime {
 
     runGameLoop(timestamp?: DOMHighResTimeStamp) {
         this.update(timestamp);
+
+        this.scene.update();
+        this.scene.render(this.renderer);
         this.renderer.render();
 
         requestAnimationFrame(this.runGameLoop.bind(this));

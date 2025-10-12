@@ -1,4 +1,5 @@
 import { GameObject } from "./game.object";
+import { Renderer } from "./renderer";
 
 class Scene {
     id: string;
@@ -13,6 +14,16 @@ class Scene {
         const length = this.objects.push(gameObject);
 
         return this.objects[length - 1];
+    }
+
+    update() {
+
+    }
+
+    render(renderer: Renderer) {
+        this.objects.forEach(obj => {
+            renderer.pushTransform(obj.transform);
+        });
     }
 }
 
