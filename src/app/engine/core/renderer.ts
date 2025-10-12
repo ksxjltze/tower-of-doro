@@ -157,15 +157,7 @@ class Renderer {
       alphaMode: "premultiplied",
     });
 
-    const vertices: Float32Array = new Float32Array([
-      -0.5, -0.5, 0.0, 0.0,  // bottom left
-      0.5, -0.5, 1.0, 0.0,  // bottom right
-      -0.5, 0.5, 0.0, 1.0,  // top left
-
-      -0.5, 0.5, 0.0, 1.0,  // top left
-      0.5, -0.5, 1.0, 0.0,  // bottom right
-      0.5, 0.5, 1.0, 1.0,  // top right
-    ]);
+    const vertices: Float32Array = this.cubeVertices();
 
     this.vertexBuffer = device.createBuffer({
       size: vertices.byteLength, // make it big enough to store vertices in
@@ -179,15 +171,15 @@ class Renderer {
           {
             shaderLocation: 0, // position
             offset: 0,
-            format: "float32x2",
+            format: "float32x3",
           },
           {
             shaderLocation: 1, // uv
-            offset: 8, // 2 floats (position) * 4 bytes each = 8 bytes offset
+            offset: 8,
             format: "float32x2",
           },
         ],
-        arrayStride: 16, // 2 floats (position) + 2 floats (uv) = 4 floats * 4 bytes each = 16 bytes
+        arrayStride: 20,
         stepMode: "vertex",
       },
     ];
@@ -266,16 +258,44 @@ class Renderer {
     return renderPassDescriptor as GPURenderPassDescriptor;
   }
 
-  generateSpriteVertices() {
-    const spriteSize = Constants.UnitSize / 2;
+  cubeVertices() {
     const vertices: Float32Array = new Float32Array([
-      -spriteSize, -spriteSize, 0.0, 0.0,  // bottom left
-      spriteSize, -spriteSize, 1.0, 0.0,  // bottom right
-      -spriteSize, spriteSize, 0.0, 1.0,  // top left
-
-      -spriteSize, spriteSize, 0.0, 1.0,  // top left
-      spriteSize, -spriteSize, 1.0, 0.0,  // bottom right
-      spriteSize, spriteSize, 1.0, 1.0,  // top right
+        -0.5, -0.5, -0.5,  0.0, 0.0,
+         0.5, -0.5, -0.5,  1.0, 0.0,
+         0.5,  0.5, -0.5,  1.0, 1.0,
+         0.5,  0.5, -0.5,  1.0, 1.0,
+        -0.5,  0.5, -0.5,  0.0, 1.0,
+        -0.5, -0.5, -0.5,  0.0, 0.0,
+        -0.5, -0.5,  0.5,  0.0, 0.0,
+         0.5, -0.5,  0.5,  1.0, 0.0,
+         0.5,  0.5,  0.5,  1.0, 1.0,
+         0.5,  0.5,  0.5,  1.0, 1.0,
+        -0.5,  0.5,  0.5,  0.0, 1.0,
+        -0.5, -0.5,  0.5,  0.0, 0.0,
+        -0.5,  0.5,  0.5,  1.0, 0.0,
+        -0.5,  0.5, -0.5,  1.0, 1.0,
+        -0.5, -0.5, -0.5,  0.0, 1.0,
+        -0.5, -0.5, -0.5,  0.0, 1.0,
+        -0.5, -0.5,  0.5,  0.0, 0.0,
+        -0.5,  0.5,  0.5,  1.0, 0.0,
+         0.5,  0.5,  0.5,  1.0, 0.0,
+         0.5,  0.5, -0.5,  1.0, 1.0,
+         0.5, -0.5, -0.5,  0.0, 1.0,
+         0.5, -0.5, -0.5,  0.0, 1.0,
+         0.5, -0.5,  0.5,  0.0, 0.0,
+         0.5,  0.5,  0.5,  1.0, 0.0,
+        -0.5, -0.5, -0.5,  0.0, 1.0,
+         0.5, -0.5, -0.5,  1.0, 1.0,
+         0.5, -0.5,  0.5,  1.0, 0.0,
+         0.5, -0.5,  0.5,  1.0, 0.0,
+        -0.5, -0.5,  0.5,  0.0, 0.0,
+        -0.5, -0.5, -0.5,  0.0, 1.0,
+        -0.5,  0.5, -0.5,  0.0, 1.0,
+         0.5,  0.5, -0.5,  1.0, 1.0,
+         0.5,  0.5,  0.5,  1.0, 0.0,
+         0.5,  0.5,  0.5,  1.0, 0.0,
+        -0.5,  0.5,  0.5,  0.0, 0.0,
+        -0.5,  0.5, -0.5,  0.0, 1.0
     ]);
 
     return vertices;
@@ -483,7 +503,7 @@ class Renderer {
           pass.setVertexBuffer(0, this.vertexBuffer);
           pass.setBindGroup(0, bindGroup);
 
-          pass.draw(6);
+          pass.draw(36);
         });
 
       pass.end();

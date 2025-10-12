@@ -16,8 +16,12 @@ class Scene {
         return this.objects[length - 1];
     }
 
-    update() {
+    start() {
+        
+    }
 
+    update() {
+        
     }
 
     render(renderer: Renderer) {

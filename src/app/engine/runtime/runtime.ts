@@ -32,6 +32,15 @@ class Runtime {
         this.elapsedTime += Time.deltaTime;
         this.lastTimestamp = timestamp || performance.now();
 
+        //temp
+        this.scene.objects.forEach(obj => {
+            const speed = 1; // units per second
+            obj.transform.position.x = Math.sin(this.elapsedTime * speed) * 1.5;
+            obj.transform.position.y = Math.cos(this.elapsedTime * speed) * 1.5;
+            obj.transform.rotation[2] += (Math.PI / 4) * Time.deltaTime; // rotate 45 degrees per second
+            obj.transform.rotation[1] += (Math.PI / 4) * Time.deltaTime; // rotate 45 degrees per second
+        });
+
         //TODO: frame management
 
         // Update input state for the current frame
@@ -53,7 +62,6 @@ class Runtime {
         const gameObject = this.scene.AddObject(new GameObject("GameObject"));
         gameObject.transform.position = new Vector3(0, 0, 0);
         gameObject.transform.scale = [0.5, 0.5, 0.5];
-        gameObject.transform.rotation = [0, Math.PI / 4, Math.PI / 4];
 
         this.initialized = true;
         requestAnimationFrame(renderCallback.bind(this));
